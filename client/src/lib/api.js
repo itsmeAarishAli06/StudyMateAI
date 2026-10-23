@@ -10,8 +10,12 @@ async function request(path, body, token) {
         method: body === undefined ? 'GET' : 'POST',
         headers: { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}) },
         body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(65_000),
       })
-    } catch {
+    } catch (error) {
+      if (error.name === 'TimeoutError') {
+        throw new Error('StudyMate took too long to respond. Please try again in a moment.')
+      }
       throw new Error('Could not reach the StudyMate API. Make sure the backend is running and try again.')
     }
   }

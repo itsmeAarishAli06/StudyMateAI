@@ -4,6 +4,8 @@ const iconPaths = {
   notes: <><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5M9 12h7M9 16h7" /></>,
   quiz: <><path d="M9 4h6M9 2h6v4H9z" /><path d="M6 4H4v18h16V4h-2M8 12l2 2 5-5M8 18h8" /></>,
   cards: <><rect x="5" y="5" width="14" height="16" rx="2" /><path d="M8 2h10a2 2 0 0 1 2 2v15M9 11h6M9 15h4" /></>,
+  play: <><path d="m8 5 12 7-12 7z" /></>,
+  pause: <><path d="M8 5h3v14H8zM15 5h3v14h-3z" /></>,
   history: <><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
   search: <><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4 4" /></>,
   plus: <><path d="M12 5v14M5 12h14" /></>,

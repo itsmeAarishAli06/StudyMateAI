@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../components/Icon.jsx'
 import { sampleNotes } from '../data/mockData.js'
 import { createSummary } from '../lib/api.js'
@@ -11,9 +11,29 @@ function SummaryPage({ selectedSummary, onSave, onToast, onReset, accessToken })
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [isSaved, setIsSaved] = useState(Boolean(selectedSummary?.id))
+  const [speechState, setSpeechState] = useState('idle')
+  const [speechCharIndex, setSpeechCharIndex] = useState(-1)
+  const utteranceRef = useRef(null)
+  const activeWordRef = useRef(null)
   const noteCount = notes.length
 
+  const speechAvailable = typeof window !== 'undefined'
+    && 'speechSynthesis' in window
+    && 'SpeechSynthesisUtterance' in window
+
+  function stopReading() {
+    if (utteranceRef.current) {
+      utteranceRef.current.onend = null
+      utteranceRef.current.onerror = null
+      utteranceRef.current = null
+    }
+    if (speechAvailable) window.speechSynthesis.cancel()
+    setSpeechState('idle')
+    setSpeechCharIndex(-1)
+  }
+
   useEffect(() => {
+    stopReading()
     setNotes(selectedSummary?.sourceText || '')
     setTitle(selectedSummary?.title || '')
     setResult(selectedSummary?.content || null)
@@ -21,7 +41,31 @@ function SummaryPage({ selectedSummary, onSave, onToast, onReset, accessToken })
     setError('')
   }, [selectedSummary?.id])
 
+  useEffect(() => () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+      utteranceRef.current = null
+    }
+  }, [])
+
   const formattedSummary = useMemo(() => result ? [result.lead, ...result.points, `Key takeaway: ${result.takeaway}`].join('\n\n') : '', [result])
+  const readAlongTokens = useMemo(() => {
+    let position = 0
+    return (formattedSummary.match(/\s+|\S+/g) || []).map((text) => {
+      const token = { text, start: position, end: position + text.length, isWord: !/^\s+$/.test(text) }
+      position = token.end
+      return token
+    })
+  }, [formattedSummary])
+  const activeWordIndex = useMemo(() => {
+    if (speechCharIndex < 0) return -1
+    const current = readAlongTokens.findIndex((token) => token.isWord && speechCharIndex >= token.start && speechCharIndex < token.end)
+    return current >= 0 ? current : readAlongTokens.findIndex((token) => token.isWord && token.start >= speechCharIndex)
+  }, [readAlongTokens, speechCharIndex])
+
+  useEffect(() => {
+    activeWordRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [activeWordIndex])
 
   async function generateSummary(event) {
     event.preventDefault()
@@ -31,6 +75,7 @@ function SummaryPage({ selectedSummary, onSave, onToast, onReset, accessToken })
     }
 
     setError('')
+    stopReading()
     setIsLoading(true)
     try {
       const response = await createSummary(notes.trim(), title.trim() || undefined, accessToken)
@@ -56,6 +101,49 @@ function SummaryPage({ selectedSummary, onSave, onToast, onReset, accessToken })
     }
   }
 
+  function toggleReading() {
+    if (!speechAvailable) {
+      setError('Read aloud is not available in this browser. Try a recent version of Chrome, Edge, or Safari.')
+      return
+    }
+    setError('')
+    if (speechState === 'reading') {
+      window.speechSynthesis.pause()
+      setSpeechState('paused')
+      return
+    }
+    if (speechState === 'paused') {
+      window.speechSynthesis.resume()
+      setSpeechState('reading')
+      return
+    }
+
+    stopReading()
+    const utterance = new window.SpeechSynthesisUtterance(formattedSummary)
+    utterance.rate = 0.95
+    utterance.lang = navigator.language || 'en-US'
+    utterance.onstart = () => setSpeechState('reading')
+    utterance.onboundary = (event) => {
+      if (Number.isInteger(event.charIndex)) setSpeechCharIndex(event.charIndex)
+    }
+    utterance.onend = () => {
+      if (utteranceRef.current !== utterance) return
+      utteranceRef.current = null
+      setSpeechState('idle')
+      setSpeechCharIndex(-1)
+    }
+    utterance.onerror = (event) => {
+      if (utteranceRef.current !== utterance) return
+      utteranceRef.current = null
+      setSpeechState('idle')
+      setSpeechCharIndex(-1)
+      if (!['canceled', 'interrupted'].includes(event.error)) setError('Audio playback could not start. Please try again.')
+    }
+    utteranceRef.current = utterance
+    setSpeechState('reading')
+    window.speechSynthesis.speak(utterance)
+  }
+
   async function saveSummary() {
     if (!result) return
     setIsSaving(true)
@@ -70,6 +158,7 @@ function SummaryPage({ selectedSummary, onSave, onToast, onReset, accessToken })
   }
 
   function resetSummary() {
+    stopReading()
     setNotes('')
     setTitle('')
     setResult(null)
@@ -113,6 +202,16 @@ function SummaryPage({ selectedSummary, onSave, onToast, onReset, accessToken })
               <div className="key-points-heading"><span className="point-line" /> KEY IDEAS</div>
               <ul className="key-points">{result.points.map((point, index) => <li key={`${point}-${index}`}><span className="point-number">0{index + 1}</span><span>{point}</span></li>)}</ul>
               <div className="takeaway-card"><span><Icon name="bolt" size={15} /> REMEMBER THIS</span><p>{result.takeaway}</p></div>
+              <div className="summary-audio-controls" aria-label="Summary audio controls">
+                <button className="button button-secondary" type="button" onClick={toggleReading} disabled={!speechAvailable} title={!speechAvailable ? 'Speech playback is not supported in this browser' : undefined}><Icon name={speechState === 'reading' ? 'pause' : 'play'} size={15} /> {speechState === 'reading' ? 'Pause' : speechState === 'paused' ? 'Resume' : 'Read aloud'}</button>
+                {speechState !== 'idle' && <button className="button button-secondary" type="button" onClick={stopReading}><Icon name="close" size={14} /> Stop</button>}
+                <span role="status" aria-live="polite">{!speechAvailable ? 'Audio playback is not supported in this browser' : speechState === 'reading' ? 'Reading your summary' : speechState === 'paused' ? 'Reading paused' : ''}</span>
+              </div>
+              {speechState !== 'idle' && <div className="summary-read-along" aria-label="Follow along with the spoken summary"><span className="summary-read-along-label">FOLLOW ALONG</span><p>{readAlongTokens.map((token, index) => token.isWord
+                ? index === activeWordIndex
+                  ? <mark className="summary-current-word" key={token.start} ref={activeWordRef} aria-current="true">{token.text}</mark>
+                  : <span key={token.start}>{token.text}</span>
+                : token.text)}</p></div>}
               <div className="result-actions"><button className="button button-secondary" type="button" onClick={copySummary}><Icon name="copy" size={15} /> Copy</button><button className="button button-primary" type="button" onClick={saveSummary} disabled={isSaved || isSaving}><Icon name={isSaved ? 'check' : 'save'} size={15} /> {isSaving ? 'Saving…' : isSaved ? 'Saved to history' : 'Save summary'}</button></div>
             </div>
           ) : (

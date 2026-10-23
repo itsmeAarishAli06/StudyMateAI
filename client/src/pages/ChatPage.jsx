@@ -8,23 +8,32 @@ function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  async function sendQuestion(question = input) {
+  async function sendQuestion(question = input, options = {}) {
     const text = question.trim()
     if (!text || isLoading) return
 
     setError('')
     setInput('')
     setIsLoading(true)
-    onMessagesChange((current) => [...current, { id: crypto.randomUUID(), role: 'user', text }])
+    onMessagesChange((current) => [...current, { id: crypto.randomUUID(), role: 'user', text, displayText: options.displayText }])
 
     try {
-      const answer = await sendChatMessage(text, messages, accessToken)
+      const answer = await sendChatMessage(text, options.history ?? messages, accessToken)
       onMessagesChange((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', text: answer }])
     } catch (requestError) {
       setError(requestError.message || 'Your tutor could not answer just now. Please try again.')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  function askForHelp(action, messageIndex) {
+    const prompts = {
+      simple: { displayText: 'Explain that more simply', prompt: 'Explain your previous answer in simpler words for a student. Use short sentences, keep the facts accurate, and avoid jargon.' },
+      example: { displayText: 'Give me an example', prompt: 'Give one concrete, accurate example that helps me understand your previous answer. Briefly explain how the example connects to the idea.' },
+    }
+    const request = prompts[action]
+    if (request) sendQuestion(request.prompt, { displayText: request.displayText, history: messages.slice(0, messageIndex + 1) })
   }
 
   function resetChat() {
@@ -54,12 +63,13 @@ function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken 
                 </div>
               </div>
             )}
-            {messages.map((message) => (
+            {messages.map((message, messageIndex) => (
               <article className={`message message-${message.role}`} key={message.id}>
                 {message.role === 'assistant' && <span className="message-avatar"><Icon name="spark" size={14} /></span>}
                 <div className="message-body">
                   <span className="message-author">{message.role === 'assistant' ? 'StudyMate' : 'You'}</span>
-                  <p>{message.text}</p>
+                  <p>{message.displayText || message.text}</p>
+                  {message.role === 'assistant' && <div className="message-study-actions" aria-label="More ways to understand this answer"><button type="button" onClick={() => askForHelp('simple', messageIndex)} disabled={isLoading}><Icon name="spark" size={13} /> Explain simply</button><button type="button" onClick={() => askForHelp('example', messageIndex)} disabled={isLoading}><Icon name="lightbulb" size={13} /> Give an example</button></div>}
                 </div>
               </article>
             ))}

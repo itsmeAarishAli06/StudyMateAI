@@ -283,6 +283,13 @@ button:disabled { cursor: not-allowed; }
 .takeaway-card p { margin: 0; color: #576c59; font-size: 11px; line-height: 1.55; }
 .result-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 15px; }
 .result-actions .button { min-height: 33px; font-size: 11px; }
+.summary-audio-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.summary-audio-controls .button { min-height: 34px; font-size: 11px; }
+.summary-audio-controls > span { margin-left: auto; color: #7b907d; font-size: 11px; }
+.summary-read-along { max-height: 210px; overflow-y: auto; margin-top: 10px; padding: 14px 15px; border: 1px solid #e3ebe0; border-radius: 10px; background: #fbfcfa; scroll-behavior: smooth; }
+.summary-read-along-label { display: block; margin-bottom: 8px; color: #829482; font-size: 9px; font-weight: 800; letter-spacing: .11em; }
+.summary-read-along p { margin: 0; color: #59695d; font-size: 13px; line-height: 1.9; white-space: pre-wrap; }
+.summary-current-word { padding: 2px 3px; border-radius: 4px; background: #e4f1bd; color: #344c34; box-shadow: 0 0 0 1px rgba(130, 161, 86, .16); }
 
 /* Quiz maker */
 .quiz-layout { display: grid; grid-template-columns: minmax(0, 1fr) 250px; align-items: start; gap: 15px; }
@@ -642,6 +649,7 @@ body { background: #f3f7f2; }
   .filter-tabs { justify-content: space-between; }
   .filter-tabs button { gap: 4px; padding: 0 6px; font-size: 10px; }
   .history-card { padding: 12px; }
+  .summary-audio-controls > span { width: 100%; margin-left: 0; }
   .history-card-menu { font-size: 9px; }
   .history-card-footer { flex-wrap: wrap; }
   .open-item-button { margin-left: auto; }
@@ -743,4 +751,13 @@ body { background: #f3f7f2; }
   .flashcard-card { min-height: 235px; padding: 26px 18px; }
   .flashcard-rating { display: grid; grid-template-columns: 1fr 1fr; }
   .flashcard-rating .button { min-width: 0; padding-inline: 9px; }
+}
+.message-study-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+.message-study-actions button { min-height: 29px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid #e7ece5; border-radius: 7px; background: #fff; color: #758579; font-size: 11px; font-weight: 650; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.message-study-actions button:hover:not(:disabled) { border-color: #ccddca; background: #f6faf4; color: #4d7954; }
+.message-study-actions button:disabled { opacity: .5; cursor: wait; }
+.message-user .message-study-actions { display: none; }
+@media (max-width: 560px) {
+  .message-study-actions { gap: 5px; }
+  .message-study-actions button { min-height: 32px; padding: 0 8px; }
 }
