@@ -201,7 +201,7 @@ function App() {
 }
 
 function AuthLoading() {
-  return <main className="auth-shell"><div className="auth-card" role="status"><span className="auth-mark">✦</span><h1>Loading your StudyMate account…</h1></div></main>
+  return <main className="auth-shell"><div className="auth-loading-card" role="status"><span className="auth-brand-mark"><Icon name="spark" size={21} /></span><span className="button-spinner" /><h1>Loading your study space</h1><p>Getting everything ready for you.</p></div></main>
 }
 
 function AuthScreen({ error, onSubmit }) {
@@ -210,27 +210,50 @@ function AuthScreen({ error, onSubmit }) {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const isSignIn = mode === 'signin'
+
   async function submit(event) {
     event.preventDefault()
     setMessage('')
     setLoading(true)
     try { setMessage(await onSubmit(mode, email.trim(), password)) } catch { /* Error is rendered by the parent. */ } finally { setLoading(false) }
   }
+
   return (
     <main className="auth-shell">
-      <section className="auth-card">
-        <span className="auth-mark">✦</span><p className="page-kicker">YOUR PRIVATE STUDY SPACE</p>
-        <h1>{mode === 'signin' ? 'Welcome back.' : 'Start your study space.'}</h1>
-        <p className="auth-description">Sign in to keep your summaries and quiz results synced securely to your account.</p>
-        <form onSubmit={submit}>
-          <label className="field-label" htmlFor="auth-email">Email</label><input className="text-input" id="auth-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
-          <label className="field-label" htmlFor="auth-password">Password</label><input className="text-input" id="auth-password" type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} />
-          {(error || message) && <p className={error ? 'form-error' : 'auth-success'} role={error ? 'alert' : 'status'}>{error || message}</p>}
-          <button className="button button-primary full-button" type="submit" disabled={loading}>{loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
-        </form>
-        <button className="auth-switch" type="button" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setMessage('') }}>{mode === 'signin' ? 'New to StudyMate? Create an account' : 'Already have an account? Sign in'}</button>
-        <p className="auth-privacy">Your study history is private to your account.</p>
-      </section>
+      <div className="auth-frame">
+        <section className="auth-story" aria-label="StudyMate introduction">
+          <div className="auth-brand"><span className="auth-brand-mark"><Icon name="spark" size={21} /></span><span>StudyMate<span>AI</span></span></div>
+          <div className="auth-story-copy">
+            <span className="auth-eyebrow"><i /> YOUR PERSONAL STUDY SPACE</span>
+            <h2>Make room for<br /><em>what you&apos;ll become.</em></h2>
+            <p>Turn big study sessions into small, clear steps. Your notes, practice, and progress all in one calm place.</p>
+          </div>
+          <div className="auth-preview" aria-hidden="true">
+            <div className="auth-preview-top"><span className="preview-spark"><Icon name="spark" size={14} /></span><span>YOUR LEARNING, IN FLOW</span><span className="preview-live">READY</span></div>
+            <div className="auth-preview-line"><span className="preview-icon"><Icon name="notes" size={15} /></span><span><strong>Study guides</strong><small>Make complex notes feel clear</small></span><span className="preview-check"><Icon name="check" size={13} /></span></div>
+            <div className="auth-preview-line"><span className="preview-icon preview-quiz"><Icon name="quiz" size={15} /></span><span><strong>Quick practice</strong><small>Build confidence one question at a time</small></span><span className="preview-check"><Icon name="check" size={13} /></span></div>
+            <div className="auth-preview-footer"><span className="preview-avatars"><i>S</i><i>+</i></span><span>Made for your next breakthrough</span><Icon name="arrow" size={15} /></div>
+          </div>
+          <div className="auth-story-foot"><span>FOCUS WITH PURPOSE</span><span>LEARN AT YOUR PACE</span><span>GROW EVERY DAY</span></div>
+        </section>
+
+        <section className="auth-card">
+          <div className="auth-mobile-brand"><span className="auth-brand-mark"><Icon name="spark" size={19} /></span><span>StudyMate<span>AI</span></span></div>
+          <div className="auth-form-heading"><span className="auth-form-kicker">{isSignIn ? 'WELCOME BACK' : 'A FRESH START'}</span><h1>{isSignIn ? 'Sign in to your space.' : 'Create your account.'}</h1><p>{isSignIn ? 'Pick up right where your learning left off.' : 'Set up your private study space in a moment.'}</p></div>
+          <form onSubmit={submit}>
+            <label className="field-label" htmlFor="auth-email">Email address</label>
+            <div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="chat" size={16} /></span><input className="text-input" id="auth-email" type="email" autoComplete="email" placeholder="you@example.com" required value={email} onChange={(event) => setEmail(event.target.value)} /></div>
+            <label className="field-label" htmlFor="auth-password">Password</label>
+            <div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="history" size={16} /></span><input className="text-input" id="auth-password" type="password" autoComplete={isSignIn ? 'current-password' : 'new-password'} placeholder="At least 6 characters" minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} /></div>
+            {(error || message) && <p className={error ? 'form-error' : 'auth-success'} role={error ? 'alert' : 'status'}>{error || message}</p>}
+            <button className="button button-primary full-button auth-submit" type="submit" disabled={loading}>{loading ? <><span className="button-spinner" /> Please wait...</> : <>{isSignIn ? 'Sign in' : 'Create account'} <Icon name="arrow" size={16} /></>}</button>
+          </form>
+          <div className="auth-divider"><span /> <small>YOUR PROGRESS, KEPT SAFE</small> <span /></div>
+          <p className="auth-privacy"><Icon name="check" size={14} /> Your study history stays private to your account.</p>
+          <div className="auth-switch-row"><span>{isSignIn ? 'New to StudyMate?' : 'Already have an account?'}</span><button className="auth-switch" type="button" onClick={() => { setMode(isSignIn ? 'signup' : 'signin'); setMessage('') }}>{isSignIn ? 'Create an account' : 'Sign in'}</button></div>
+        </section>
+      </div>
     </main>
   )
 }

@@ -15,6 +15,11 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [isSaved, setIsSaved] = useState(Boolean(selectedQuiz?.id))
+  const [studyMode, setStudyMode] = useState('quiz')
+  const [flashcardIndexes, setFlashcardIndexes] = useState([])
+  const [flashcardIndex, setFlashcardIndex] = useState(0)
+  const [flashcardRevealed, setFlashcardRevealed] = useState(false)
+  const [flashcardOutcomes, setFlashcardOutcomes] = useState({})
 
   useEffect(() => {
     if (selectedQuiz?.questions) {
@@ -24,6 +29,11 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
       setAnswers({})
       setSubmitted(false)
       setIsSaved(Boolean(selectedQuiz.id))
+      setStudyMode('quiz')
+      setFlashcardIndexes(selectedQuiz.questions.map((_, index) => index))
+      setFlashcardIndex(0)
+      setFlashcardRevealed(false)
+      setFlashcardOutcomes({})
       setError('')
     }
   }, [selectedQuiz?.id])
@@ -51,6 +61,11 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
       }, accessToken)
       setQuiz(generated)
       setIsSaved(false)
+      setStudyMode('quiz')
+      setFlashcardIndexes(generated.questions.map((_, index) => index))
+      setFlashcardIndex(0)
+      setFlashcardRevealed(false)
+      setFlashcardOutcomes({})
     } catch (requestError) {
       setError(requestError.message || 'Your quiz could not be created just now. Please try again.')
     } finally {
@@ -75,7 +90,27 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
     setSubmitted(false)
     setError('')
     setIsSaved(false)
+    setStudyMode('quiz')
+    setFlashcardIndexes([])
+    setFlashcardIndex(0)
+    setFlashcardRevealed(false)
+    setFlashcardOutcomes({})
     onReset()
+  }
+
+  function startFlashcards(indexes = quiz?.questions.map((_, index) => index) || []) {
+    setStudyMode('flashcards')
+    setFlashcardIndexes(indexes)
+    setFlashcardIndex(0)
+    setFlashcardRevealed(false)
+    setFlashcardOutcomes({})
+  }
+
+  function markFlashcard(outcome) {
+    const questionIndex = flashcardIndexes[flashcardIndex]
+    setFlashcardOutcomes((current) => ({ ...current, [questionIndex]: outcome }))
+    setFlashcardRevealed(false)
+    setFlashcardIndex((current) => current + 1)
   }
 
   async function saveQuiz() {
@@ -122,6 +157,41 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
           {quiz && (
             <div className="quiz-session">
               <div className="quiz-session-head"><div><span className="result-overline">YOUR PRACTICE SET</span><h2>{quiz.title}</h2><p>{quiz.questions.length} questions <span className="head-separator">/</span> about 3 minutes</p></div><button className="button button-secondary" type="button" onClick={startOver}><Icon name="refresh" size={15} /> New quiz</button></div>
+              <div className="study-mode-tabs" role="tablist" aria-label="Study mode">
+                <button className={studyMode === 'quiz' ? 'selected' : ''} type="button" role="tab" aria-selected={studyMode === 'quiz'} onClick={() => setStudyMode('quiz')}><Icon name="quiz" size={15} /> Quiz</button>
+                <button className={studyMode === 'flashcards' ? 'selected' : ''} type="button" role="tab" aria-selected={studyMode === 'flashcards'} onClick={() => { if (studyMode !== 'flashcards') startFlashcards() }}><Icon name="cards" size={15} /> Flashcards</button>
+              </div>
+              {studyMode === 'flashcards' ? (() => {
+                const isComplete = flashcardIndex >= flashcardIndexes.length
+                const activeQuestionIndex = flashcardIndexes[flashcardIndex]
+                const activeQuestion = quiz.questions[activeQuestionIndex]
+                const masteredCount = Object.values(flashcardOutcomes).filter((outcome) => outcome === 'known').length
+                const reviewIndexes = Object.entries(flashcardOutcomes).filter(([, outcome]) => outcome === 'review').map(([index]) => Number(index))
+                return (
+                  <section className="flashcard-session" aria-label="Flashcard practice">
+                    {!isComplete && <div className="flashcard-progress"><span>Card {flashcardIndex + 1} of {flashcardIndexes.length}</span><span>{masteredCount} remembered</span><div className="flashcard-progress-track"><i style={{ width: `${(flashcardIndex / flashcardIndexes.length) * 100}%` }} /></div></div>}
+                    {isComplete ? (
+                      <div className="flashcard-complete input-card">
+                        <span className="flashcard-complete-icon"><Icon name={reviewIndexes.length ? 'refresh' : 'check'} size={23} /></span>
+                        <span className="result-overline">FLASHCARD SESSION COMPLETE</span>
+                        <h3>{reviewIndexes.length ? `${reviewIndexes.length} card${reviewIndexes.length === 1 ? '' : 's'} to revisit` : 'You remembered every card.'}</h3>
+                        <p>{masteredCount} marked Got it / {reviewIndexes.length} marked Review again</p>
+                        {reviewIndexes.length > 0 && <button className="button button-primary" type="button" onClick={() => startFlashcards(reviewIndexes)}><Icon name="refresh" size={15} /> Practice review cards</button>}
+                        <button className="quiet-button" type="button" onClick={() => startFlashcards()}>Restart all cards</button>
+                      </div>
+                    ) : (
+                      <>
+                        <article className={`flashcard-card ${flashcardRevealed ? 'is-revealed' : ''}`}>
+                          <span className="flashcard-card-label">{flashcardRevealed ? 'ANSWER' : 'QUESTION'} <span> / {String(activeQuestionIndex + 1).padStart(2, '0')}</span></span>
+                          <h3>{flashcardRevealed ? activeQuestion.options[activeQuestion.answer] : activeQuestion.question}</h3>
+                          {flashcardRevealed ? <div className="flashcard-explanation"><Icon name="lightbulb" size={16} /><p>{activeQuestion.explanation}</p></div> : <p className="flashcard-hint">Try to recall the answer before you reveal it.</p>}
+                        </article>
+                        {!flashcardRevealed ? <button className="button button-primary flashcard-reveal-button" type="button" onClick={() => setFlashcardRevealed(true)}>Reveal answer <Icon name="arrow" size={15} /></button> : <div className="flashcard-rating"><button className="button button-secondary" type="button" onClick={() => markFlashcard('review')}><Icon name="refresh" size={15} /> Review again</button><button className="button button-primary" type="button" onClick={() => markFlashcard('known')}><Icon name="check" size={15} /> Got it</button></div>}
+                      </>
+                    )}
+                  </section>
+                )
+              })() : <>
               {submitted && <div className={`score-banner ${score === quiz.questions.length ? 'perfect-score' : ''}`}><span className="score-icon"><Icon name={score === quiz.questions.length ? 'spark' : 'check'} size={20} /></span><div><strong>{score === quiz.questions.length ? 'Perfect score. You have this down.' : `You got ${score} out of ${quiz.questions.length}.`}</strong><span>{score === quiz.questions.length ? 'Keep your momentum going.' : 'Review the explanations, then try again when you are ready.'}</span></div><span className="score-fraction">{score}<small>/{quiz.questions.length}</small></span></div>}
               <div className="question-list">
                 {quiz.questions.map((item, questionIndex) => {
@@ -148,6 +218,7 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
               </div>
               {error && <div className="form-error" role="alert"><Icon name="close" size={15} /> {error}</div>}
               {!submitted ? <button className="button button-primary check-answers-button" type="button" onClick={submitAnswers}>Check my answers <Icon name="arrow" size={15} /></button> : <div className="quiz-completion-actions"><button className="button button-secondary" type="button" onClick={startOver}><Icon name="refresh" size={15} /> Try another quiz</button><button className="button button-primary" type="button" onClick={saveQuiz} disabled={isSaved || isSaving}><Icon name={isSaved ? 'check' : 'save'} size={15} /> {isSaving ? 'Saving…' : isSaved ? 'Saved to history' : 'Save this quiz'}</button></div>}
+              </>}
             </div>
           )}
         </section>
