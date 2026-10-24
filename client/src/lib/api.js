@@ -69,7 +69,13 @@ export function deleteStudyPlan(id, token) {
 }
 
 export async function sendChatMessage(message, history = [], token) {
-  const result = await request('/api/chat', { message, history }, token)
+  const normalizedHistory = Array.isArray(history)
+    ? history
+      .filter((item) => item && ['user', 'assistant'].includes(item.role) && typeof item.text === 'string' && item.text.trim())
+      .slice(-20)
+      .map(({ role, text }) => ({ role, text: text.trim().slice(0, 1200) }))
+    : []
+  const result = await request('/api/chat', { message, history: normalizedHistory }, token)
   return result.answer
 }
 

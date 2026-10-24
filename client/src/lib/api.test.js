@@ -11,13 +11,31 @@ describe('StudyMate API client', () => {
   it('posts chat message and conversation history, then returns the answer', async () => {
     const fetch = vi.fn().mockResolvedValue(jsonResponse({ answer: 'ATP stores usable cell energy.' }))
     vi.stubGlobal('fetch', fetch)
-    const answer = await sendChatMessage('What is ATP?', [{ role: 'user', text: 'Explain energy' }])
+    const answer = await sendChatMessage('What is ATP?', [{ id: 'message-1', role: 'user', text: 'Explain energy', displayText: 'Explain this simply' }])
 
     expect(answer).toBe('ATP stores usable cell energy.')
     expect(fetch).toHaveBeenCalledWith('http://localhost:3000/api/chat', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({ message: 'What is ATP?', history: [{ role: 'user', text: 'Explain energy' }] }),
     }))
+  })
+
+  it('strips UI fields and bounds history to the server chat contract', async () => {
+    const fetch = vi.fn().mockResolvedValue(jsonResponse({ answer: 'Done.' }))
+    vi.stubGlobal('fetch', fetch)
+    const history = Array.from({ length: 22 }, (_, index) => ({
+      id: `message-${index}`,
+      role: index % 2 ? 'assistant' : 'user',
+      text: index === 21 ? ` ${'x'.repeat(1201)} ` : `Message ${index}`,
+      displayText: 'UI-only label',
+    }))
+
+    await sendChatMessage('Continue', history)
+    const payload = JSON.parse(fetch.mock.calls[0][1].body)
+    expect(payload.history).toHaveLength(20)
+    expect(payload.history[0]).toEqual({ role: 'user', text: 'Message 2' })
+    expect(payload.history.at(-1)).toEqual({ role: 'assistant', text: 'x'.repeat(1200) })
+    expect(payload.history.every((item) => Object.keys(item).sort().join(',') === 'role,text')).toBe(true)
   })
 
   it('posts notes and title, then returns the structured summary', async () => {
