@@ -12,7 +12,9 @@ router.post('/', async (request, response) => {
     : validateText(request.body?.notes, 'notes', { max: 12_000, label: 'Notes' })
   const questionCount = request.body?.questionCount ?? 5
   if (![3, 5].includes(questionCount)) throw new AppError(400, 'VALIDATION_ERROR', 'questionCount must be either 3 or 5.')
-  const quiz = await createQuiz(source, questionCount, sourceType)
+  const difficulty = request.body?.difficulty ?? 'standard'
+  if (!['easy', 'standard', 'challenging'].includes(difficulty)) throw new AppError(400, 'VALIDATION_ERROR', 'difficulty must be "easy", "standard", or "challenging".')
+  const quiz = await createQuiz(source, questionCount, sourceType, difficulty)
   response.json(quiz)
 })
 

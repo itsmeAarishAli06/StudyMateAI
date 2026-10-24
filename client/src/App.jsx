@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Icon from './components/Icon.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import { createStudyItem, getHealth, getStudyItems } from './lib/api.js'
@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
 import QuizPage from './pages/QuizPage.jsx'
 import SummaryPage from './pages/SummaryPage.jsx'
+import StudyPlanPage from './pages/StudyPlanPage.jsx'
 import './App.css'
 
 const pageNames = {
@@ -16,6 +17,7 @@ const pageNames = {
   summary: 'Summarizer',
   quiz: 'Quiz maker',
   history: 'Study history',
+  planner: 'Study planner',
 }
 
 function loadSavedItems() {
@@ -37,6 +39,8 @@ function App() {
   const [selectedSummary, setSelectedSummary] = useState(null)
   const [selectedQuiz, setSelectedQuiz] = useState(null)
   const [toast, setToast] = useState('')
+  const [profileOpen, setProfileOpen] = useState(false)
+  const profileMenuRef = useRef(null)
   const [apiStatus, setApiStatus] = useState('checking')
   const [aiMode, setAiMode] = useState('demo')
   const [historyStatus, setHistoryStatus] = useState(authConfigured ? 'loading' : 'demo')
@@ -90,6 +94,25 @@ function App() {
     return () => window.clearTimeout(timeoutId)
   }, [toast])
 
+  useEffect(() => {
+    if (!profileOpen) return undefined
+    function closeMenu(event) {
+      if (event.type === 'keydown' && event.key === 'Escape') {
+        setProfileOpen(false)
+        return
+      }
+      if (event.type === 'pointerdown' && !profileMenuRef.current?.contains(event.target)) {
+        setProfileOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', closeMenu)
+    document.addEventListener('keydown', closeMenu)
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu)
+      document.removeEventListener('keydown', closeMenu)
+    }
+  }, [profileOpen])
+
   function openItem(item) {
     if (item.type === 'quiz') {
       setSelectedQuiz(item)
@@ -107,6 +130,7 @@ function App() {
       title: summary.title,
       preview: summary.content.lead,
       dateLabel: 'Just now',
+      createdAt: new Date().toISOString(),
       sourceText: summary.sourceText,
       content: summary.content,
     }
@@ -131,6 +155,7 @@ function App() {
       title: quiz.title,
       preview: `${quiz.questions.length} questions to help you check your understanding.`,
       dateLabel: 'Just now',
+      createdAt: new Date().toISOString(),
       score: quiz.score,
       questions: quiz.questions,
     }
@@ -163,6 +188,7 @@ function App() {
 
   async function handleSignOut() {
     await signOut()
+    setProfileOpen(false)
     setSession(null)
     setItems([])
     setHistoryStatus('loading')
@@ -179,7 +205,33 @@ function App() {
         <header className="workspace-topbar">
           <div className="mobile-brand"><span className="brand-symbol"><Icon name="spark" size={17} /></span><span className="brand-name">studymate<span>AI</span></span></div>
           <div className="breadcrumb"><span>Workspace</span><Icon name="chevron" size={13} /><strong>{pageNames[activePage]}</strong></div>
-          <div className="topbar-actions"><span className={`demo-mode status-${apiStatus}`} role="status"><span />{apiStatus === 'checking' ? 'CONNECTING API' : apiStatus === 'offline' ? 'API OFFLINE' : aiMode === 'gemini' ? 'GEMINI CONFIGURED' : 'DEMO RESPONSES'}</span>{authConfigured ? <button className="account-button" type="button" onClick={handleSignOut} title="Sign out">{session.user.email} · Sign out</button> : <div className="topbar-avatar" aria-label="StudyMate profile">S</div>}</div>
+          <div className="topbar-actions">
+            <div className="profile-menu-wrap" ref={profileMenuRef}>
+              <button
+                className="profile-menu-trigger"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                aria-label={authConfigured ? `Account menu for ${session.user.email}` : 'Open guest profile menu'}
+                onClick={() => setProfileOpen((open) => !open)}
+              >
+                <span className="topbar-avatar">{authConfigured ? session.user.email?.[0]?.toUpperCase() || 'S' : 'S'}</span>
+                <span className="profile-trigger-copy"><strong>{authConfigured ? 'My account' : 'Guest session'}</strong><small>{authConfigured ? session.user.email : 'Local workspace'}</small></span>
+                <Icon name="chevron" size={15} />
+              </button>
+              {profileOpen && (
+                <div className="profile-menu" role="menu" aria-label="Account options">
+                  <div className="profile-menu-heading">
+                    <span className="profile-menu-avatar">{authConfigured ? session.user.email?.[0]?.toUpperCase() || 'S' : 'S'}</span>
+                    <span><strong>{authConfigured ? 'Signed in' : 'Guest workspace'}</strong><small>{authConfigured ? session.user.email : 'Your saved work stays in this browser.'}</small></span>
+                  </div>
+                  {authConfigured
+                    ? <button className="profile-menu-signout" type="button" role="menuitem" onClick={handleSignOut}><Icon name="logout" size={16} />Sign out</button>
+                    : <div className="profile-menu-note">Sign in becomes available when account authentication is configured.</div>}
+                </div>
+              )}
+            </div>
+          </div>
         </header>
 
         {authConfigured && historyStatus === 'error' && <div className="history-error-banner" role="alert">{authError || 'Study history could not be loaded.'}<button type="button" onClick={() => { setAuthError(''); setHistoryStatus('loading'); getStudyItems(session.access_token).then((saved) => { setItems(saved); setHistoryStatus('ready') }).catch((error) => { setAuthError(error.message); setHistoryStatus('error') }) }}>Retry</button></div>}
@@ -190,8 +242,9 @@ function App() {
           {activePage === 'home' && <Dashboard savedItems={items} onNavigate={setActivePage} onOpenItem={openItem} />}
           {activePage === 'chat' && <ChatPage messages={chatMessages} onMessagesChange={setChatMessages} onNavigate={setActivePage} aiMode={aiMode} accessToken={session?.access_token} />}
           {activePage === 'summary' && <SummaryPage selectedSummary={selectedSummary} onSave={saveSummary} onToast={setToast} onReset={() => setSelectedSummary(null)} accessToken={session?.access_token} />}
-          {activePage === 'quiz' && <QuizPage selectedQuiz={selectedQuiz} onSave={saveQuiz} onReset={() => setSelectedQuiz(null)} onToast={setToast} accessToken={session?.access_token} />}
+          {activePage === 'quiz' && <QuizPage selectedQuiz={selectedQuiz} savedItems={items} onSave={saveQuiz} onReset={() => setSelectedQuiz(null)} onToast={setToast} accessToken={session?.access_token} />}
           {activePage === 'history' && <HistoryPage items={items} onOpenItem={openItem} onNavigate={setActivePage} />}
+          {activePage === 'planner' && <StudyPlanPage accessToken={session?.access_token} onToast={setToast} />}
         </main>
       </div>
 

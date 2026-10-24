@@ -99,9 +99,14 @@ export async function summarizeNotes(notes) {
   }
 }
 
-export async function createQuiz(source, questionCount, sourceType = 'topic') {
+export async function createQuiz(source, questionCount, sourceType = 'topic', difficulty = 'standard') {
   const topic = sourceType === 'topic' ? source : 'Study material'
-  const generated = await generateJson(`Create exactly ${questionCount} multiple-choice study questions based only on this ${sourceType === 'topic' ? 'topic' : 'study material'}. Each question must have exactly 4 options, a zero-based answer index, and an explanation. Topic: ${topic}\nMaterial:\n${sourceType === 'notes' ? source : '(No notes supplied)'}`, quizSchema)
+  const difficultyGuide = {
+    easy: 'Use foundational recall and clear, direct wording. Avoid trick questions.',
+    standard: 'Use a balanced mix of recall and understanding questions.',
+    challenging: 'Use deeper application, comparison, and reasoning while keeping every answer supported by the source.',
+  }[difficulty] || 'Use a balanced mix of recall and understanding questions.'
+  const generated = await generateJson(`Create exactly ${questionCount} multiple-choice study questions based only on this ${sourceType === 'topic' ? 'topic' : 'study material'}. Difficulty: ${difficulty}. ${difficultyGuide} Each question must have exactly 4 options, a zero-based answer index, and an explanation. Topic: ${topic}\nMaterial:\n${sourceType === 'notes' ? source : '(No notes supplied)'}`, quizSchema)
   let questions
   let title
   if (generated) {
@@ -113,5 +118,5 @@ export async function createQuiz(source, questionCount, sourceType = 'topic') {
     questions = bank.slice(0, questionCount)
     title = `${topic.length > 55 ? 'Study material' : topic} quick check`
   }
-  return { title: title.slice(0, 120), questions }
+  return { title: title.slice(0, 120), questions, difficulty }
 }

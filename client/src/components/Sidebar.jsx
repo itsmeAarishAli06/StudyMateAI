@@ -5,6 +5,7 @@ export const navigationItems = [
   { id: 'chat', label: 'AI tutor', icon: 'chat' },
   { id: 'summary', label: 'Summarizer', icon: 'notes' },
   { id: 'quiz', label: 'Quiz maker', icon: 'quiz' },
+  { id: 'planner', label: 'Study planner', icon: 'calendar' },
   { id: 'history', label: 'Study history', icon: 'history' },
 ]
 
@@ -13,6 +14,7 @@ const mobileLabels = {
   chat: 'Tutor',
   summary: 'Notes',
   quiz: 'Quiz',
+  planner: 'Plan',
   history: 'History',
 }
 
@@ -55,8 +57,8 @@ function Sidebar({ activePage, onNavigate, aiMode = 'demo' }) {
         </div>
         <div className="profile-row">
           <div className="avatar">S</div>
-          <div className="profile-meta"><strong>Study session</strong><span>{aiMode === 'gemini' ? 'Gemini configured' : aiMode === 'offline' ? 'API offline' : 'Demo responses'}</span></div>
-          <span className="profile-status" title={aiMode === 'gemini' ? 'Gemini is configured' : aiMode === 'offline' ? 'API could not be reached' : 'Demo response mode is active'} />
+          <div className="profile-meta"><strong>StudyMate workspace</strong><span>{aiMode === 'offline' ? 'Service unavailable' : 'Ready for your next session'}</span></div>
+          <span className={`profile-status ${aiMode === 'offline' ? 'is-offline' : ''}`} title={aiMode === 'gemini' ? 'AI service is ready' : aiMode === 'offline' ? 'API could not be reached' : 'Demo response mode is active'} />
         </div>
       </aside>
 

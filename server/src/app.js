@@ -8,6 +8,7 @@ import chatRouter from './routes/chat.js'
 import summariesRouter from './routes/summaries.js'
 import quizzesRouter from './routes/quizzes.js'
 import studyItemsRouter from './routes/studyItems.js'
+import studyPlansRouter from './routes/studyPlans.js'
 import { createAiRateLimiterFromEnvironment } from './middleware/rateLimit.js'
 import { requireAiAccount } from './middleware/requireSupabaseUser.js'
 
@@ -41,6 +42,7 @@ app.use((_request, response, next) => {
   response.setHeader('Cache-Control', 'no-store')
   next()
 })
+app.use('/api/study-plans', express.json({ limit: '256kb' }))
 app.use(express.json({ limit: '20kb' }))
 
 app.get('/', (_request, response) => {
@@ -52,6 +54,7 @@ app.use('/api/chat', aiRateLimit, requireAiAccount, chatRouter)
 app.use('/api/summaries', aiRateLimit, requireAiAccount, summariesRouter)
 app.use('/api/quizzes', aiRateLimit, requireAiAccount, quizzesRouter)
 app.use('/api/study-items', studyItemsRouter)
+app.use('/api/study-plans', studyPlansRouter)
 
 app.use((_request, response) => {
   response.status(404).json({

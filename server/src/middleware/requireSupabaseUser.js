@@ -18,7 +18,7 @@ export function requireAiAccount(request, response, next) {
   requireSupabaseUser(request, response, next)
 }
 
-export function requireSupabaseUser(request, response, next) {
+export async function requireSupabaseUser(request, response, next) {
   const config = supabaseConfig()
   if (!config) {
     response.status(503).json({ error: { code: 'SUPABASE_NOT_CONFIGURED', message: 'Study history needs Supabase configuration. Add SUPABASE_URL and SUPABASE_ANON_KEY to the server environment.' } })
@@ -31,24 +31,45 @@ export function requireSupabaseUser(request, response, next) {
     return
   }
 
-  fetch(`${config.url}/auth/v1/user`, {
-    headers: { apikey: config.anonKey, authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(10_000),
-  })
-    .then(async (authResponse) => {
-      if (!authResponse.ok) {
-        response.status(401).json({ error: { code: 'INVALID_SESSION', message: 'Your session has expired. Sign in again.' } })
-        return
-      }
-      const user = await authResponse.json()
-      if (!user?.id) {
-        response.status(401).json({ error: { code: 'INVALID_SESSION', message: 'Your session could not be verified.' } })
-        return
-      }
-      request.supabase = { ...config, token, userId: user.id }
-      next()
+  let authResponse
+  try {
+    authResponse = await fetch(`${config.url}/auth/v1/user`, {
+      headers: { apikey: config.anonKey, authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10_000),
     })
-    .catch(() => {
-      response.status(503).json({ error: { code: 'AUTH_UNAVAILABLE', message: 'Could not verify your StudyMate session. Please retry.' } })
-    })
+  } catch (error) {
+    const networkCode = error.cause?.code || error.name || 'network error'
+    console.error('Supabase Auth verification request failed:', networkCode)
+    const message = error.name === 'TimeoutError'
+      ? 'Supabase Auth took too long to respond. Check the server Supabase URL and try again.'
+      : 'The server could not reach Supabase Auth. Check the server Supabase URL and try again.'
+    response.status(503).json({ error: { code: 'AUTH_UNAVAILABLE', message } })
+    return
+  }
+
+  if (!authResponse.ok) {
+    console.warn('Supabase Auth rejected a session verification request:', authResponse.status)
+    if (authResponse.status === 429 || authResponse.status >= 500) {
+      response.status(503).json({ error: { code: 'AUTH_UNAVAILABLE', message: 'Supabase Auth is temporarily unavailable. Please retry.' } })
+      return
+    }
+    response.status(401).json({ error: { code: 'INVALID_SESSION', message: 'Your session has expired. Sign in again.' } })
+    return
+  }
+
+  let user
+  try {
+    user = await authResponse.json()
+  } catch {
+    console.error('Supabase Auth returned an unreadable session verification response.')
+    response.status(503).json({ error: { code: 'AUTH_UNAVAILABLE', message: 'Supabase Auth returned an unreadable response. Please retry.' } })
+    return
+  }
+  if (!user?.id) {
+    response.status(401).json({ error: { code: 'INVALID_SESSION', message: 'Your session could not be verified.' } })
+    return
+  }
+
+  request.supabase = { ...config, token, userId: user.id }
+  next()
 }

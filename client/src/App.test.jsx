@@ -48,10 +48,15 @@ describe('StudyMate MVP screens', () => {
     createQuiz.mockResolvedValue(mockQuiz)
   })
 
-  it('shows the overview and navigation actions', () => {
+  it('shows the overview, guest profile menu, and navigation actions', async () => {
+    const user = userEvent.setup()
     render(<App />)
 
     expect(screen.getByRole('heading', { name: /Good morning, learner/ })).toBeInTheDocument()
+    expect(screen.queryByText(/AI READY|GEMINI CONFIGURED/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open guest profile menu' }))
+    expect(screen.getByRole('menu', { name: 'Account options' })).toHaveTextContent('Guest workspace')
+    expect(screen.queryByRole('menuitem', { name: 'Sign out' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Ask your AI tutor/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Summarize your notes/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Practice with a quiz/ })).toBeInTheDocument()
@@ -144,7 +149,7 @@ describe('StudyMate MVP screens', () => {
     await user.type(screen.getByLabelText('Paste study material'), 'Photosynthesis uses light energy to make glucose.')
     await user.click(screen.getByRole('button', { name: /Build my quiz/ }))
     expect(await screen.findByText('Which pigment captures light?')).toBeInTheDocument()
-    expect(createQuiz).toHaveBeenLastCalledWith({ notes: 'Photosynthesis uses light energy to make glucose.', sourceType: 'notes', questionCount: 5 }, undefined)
+    expect(createQuiz).toHaveBeenLastCalledWith({ notes: 'Photosynthesis uses light energy to make glucose.', sourceType: 'notes', questionCount: 5, difficulty: 'challenging' }, undefined)
   })
 
   it('filters history and provides a no-results empty state', async () => {

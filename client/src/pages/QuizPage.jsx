@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import Icon from '../components/Icon.jsx'
+import DocumentImport from '../components/DocumentImport.jsx'
 import { sampleNotes } from '../data/mockData.js'
 import { createQuiz } from '../lib/api.js'
 
-function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
+function quizAccuracy(score) {
+  const match = typeof score === 'string' && score.match(/^(\d{1,2})\s*\/\s*(\d{1,2})$/)
+  return match && Number(match[2]) > 0 ? Number(match[1]) / Number(match[2]) : null
+}
+
+function QuizPage({ selectedQuiz, savedItems = [], onSave, onReset, onToast, accessToken }) {
   const [topic, setTopic] = useState(selectedQuiz?.title || '')
   const [sourceMode, setSourceMode] = useState('topic')
   const [studyNotes, setStudyNotes] = useState('')
@@ -20,6 +26,25 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
   const [flashcardIndex, setFlashcardIndex] = useState(0)
   const [flashcardRevealed, setFlashcardRevealed] = useState(false)
   const [flashcardOutcomes, setFlashcardOutcomes] = useState({})
+  const [recentAttempt, setRecentAttempt] = useState(null)
+
+  const adaptiveLevel = useMemo(() => {
+    const quizzes = savedItems.map((item, index) => ({
+      item,
+      index,
+      accuracy: item.type === 'quiz' ? quizAccuracy(item.score) : null,
+    })).filter((entry) => entry.accuracy !== null)
+    if (recentAttempt) quizzes.unshift({ item: { title: recentAttempt.title }, index: -1, accuracy: recentAttempt.accuracy })
+    const query = sourceMode === 'topic' ? topic.trim().toLowerCase() : ''
+    const matching = query ? quizzes.filter(({ item }) => item.title.toLowerCase().includes(query) || query.includes(item.title.toLowerCase().replace(/\s+(quick check|practice quiz)$/i, ''))) : []
+    const relevant = matching.length ? matching : quizzes
+    const recent = relevant.slice(0, 3)
+    if (!recent.length) return { level: 'standard', label: 'Balanced', explanation: 'A balanced level to get started. Saved quiz scores will tune your next set.', learnedFromHistory: false }
+    const accuracy = recent.reduce((sum, item) => sum + item.accuracy, 0) / recent.length
+    if (accuracy >= 0.8) return { level: 'challenging', label: 'Challenge', explanation: `Based on ${recent.length} recent ${recent.length === 1 ? 'result' : 'results'} (${Math.round(accuracy * 100)}% average), this set will ask for deeper reasoning.`, learnedFromHistory: true }
+    if (accuracy <= 0.5) return { level: 'easy', label: 'Build confidence', explanation: `Based on ${recent.length} recent ${recent.length === 1 ? 'result' : 'results'} (${Math.round(accuracy * 100)}% average), this set will reinforce the foundations.`, learnedFromHistory: true }
+    return { level: 'standard', label: 'Steady', explanation: `Based on ${recent.length} recent ${recent.length === 1 ? 'result' : 'results'} (${Math.round(accuracy * 100)}% average), this set will balance recall and understanding.`, learnedFromHistory: true }
+  }, [recentAttempt, savedItems, sourceMode, topic])
 
   useEffect(() => {
     if (selectedQuiz?.questions) {
@@ -58,6 +83,7 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
         ...(sourceMode === 'topic' ? { topic: source } : { notes: source }),
         sourceType: sourceMode,
         questionCount,
+        ...(adaptiveLevel.learnedFromHistory ? { difficulty: adaptiveLevel.level } : {}),
       }, accessToken)
       setQuiz(generated)
       setIsSaved(false)
@@ -81,6 +107,7 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
     }
     setError('')
     setSubmitted(true)
+    setRecentAttempt({ title: quiz.title, accuracy: score / quiz.questions.length })
     onToast('Quiz complete. Take a moment to review the explanations.')
   }
 
@@ -118,6 +145,7 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
     setIsSaving(true)
     try {
       await onSave({ title: quiz.title, questions: quiz.questions, score: `${score} / ${quiz.questions.length}` })
+      setRecentAttempt(null)
       setIsSaved(true)
     } catch (saveError) {
       setError(saveError.message || 'Could not save this quiz. Please try again.')
@@ -141,10 +169,10 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
               <div className="quiz-setup-art"><div className="quiz-art-circle"><Icon name="quiz" size={24} /></div><span className="quiz-art-star star-a">+</span><span className="quiz-art-star star-b">+</span></div>
               <div className="quiz-setup-copy"><span className="result-overline">YOUR NEXT STUDY SESSION</span><h2>What are we practicing?</h2><p>Pick a topic and we'll put together a short set of questions with explanations.</p></div>
               <div className="quiz-source-label"><span className="field-label">Make a quiz from</span><div className="source-mode-tabs" role="tablist" aria-label="Quiz source type"><button className={sourceMode === 'topic' ? 'selected' : ''} role="tab" aria-selected={sourceMode === 'topic'} type="button" onClick={() => { setSourceMode('topic'); setError('') }}>A topic</button><button className={sourceMode === 'notes' ? 'selected' : ''} role="tab" aria-selected={sourceMode === 'notes'} type="button" onClick={() => { setSourceMode('notes'); setError('') }}>Study material</button></div></div>
-              {sourceMode === 'topic' ? <><label className="field-label" htmlFor="quiz-topic">Topic or subject</label><div className="quiz-topic-wrap"><Icon name="search" size={17} /><input id="quiz-topic" value={topic} onChange={(event) => { setTopic(event.target.value); setError('') }} placeholder="e.g. Cellular respiration" maxLength={100} /></div></> : <><label className="field-label" htmlFor="quiz-notes">Paste study material</label><textarea id="quiz-notes" className="quiz-notes-input" value={studyNotes} onChange={(event) => { setStudyNotes(event.target.value); setError('') }} placeholder="Paste a few paragraphs from your notes..." maxLength={12000} /><button className="quiet-button quiz-notes-sample" type="button" onClick={() => { setStudyNotes(sampleNotes); setError('') }}>Use sample notes</button></>}
+              {sourceMode === 'topic' ? <><label className="field-label" htmlFor="quiz-topic">Topic or subject</label><div className="quiz-topic-wrap"><Icon name="search" size={17} /><input id="quiz-topic" value={topic} onChange={(event) => { setTopic(event.target.value); setError('') }} placeholder="e.g. Cellular respiration" maxLength={100} /></div></> : <><label className="field-label" htmlFor="quiz-notes">Paste study material</label><DocumentImport onImport={(text) => { setStudyNotes(text); setError('') }} disabled={isLoading} /><textarea id="quiz-notes" className="quiz-notes-input" value={studyNotes} onChange={(event) => { setStudyNotes(event.target.value); setError('') }} placeholder="Paste a few paragraphs from your notes..." maxLength={12000} /><button className="quiet-button quiz-notes-sample" type="button" onClick={() => { setStudyNotes(sampleNotes); setError('') }}>Use sample notes</button></>}
               <div className="quiz-controls">
                 <label><span className="field-label">Question count</span><select value={questionCount} onChange={(event) => setQuestionCount(Number(event.target.value))}><option value={3}>3 questions</option><option value={5}>5 questions</option></select></label>
-                <div className="difficulty-control"><span className="field-label">Pace</span><div><span className="difficulty-active">Steady</span><span>One step at a time</span></div></div>
+                <div className="difficulty-control adaptive-control"><span className="field-label">Adaptive difficulty</span><div><span className="difficulty-active">{adaptiveLevel.label}</span><span>{adaptiveLevel.explanation}</span></div></div>
               </div>
               {error && <div className="form-error" role="alert"><Icon name="close" size={15} /> {error}</div>}
               <button className="button button-primary full-button" type="submit"><Icon name="spark" size={16} /> Build my quiz <Icon name="arrow" size={15} /></button>
@@ -156,7 +184,7 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
 
           {quiz && (
             <div className="quiz-session">
-              <div className="quiz-session-head"><div><span className="result-overline">YOUR PRACTICE SET</span><h2>{quiz.title}</h2><p>{quiz.questions.length} questions <span className="head-separator">/</span> about 3 minutes</p></div><button className="button button-secondary" type="button" onClick={startOver}><Icon name="refresh" size={15} /> New quiz</button></div>
+              <div className="quiz-session-head"><div><span className="result-overline">YOUR PRACTICE SET · {(quiz.difficulty || 'standard').toUpperCase()} LEVEL</span><h2>{quiz.title}</h2><p>{quiz.questions.length} questions <span className="head-separator">/</span> about 3 minutes</p></div><button className="button button-secondary" type="button" onClick={startOver}><Icon name="refresh" size={15} /> New quiz</button></div>
               <div className="study-mode-tabs" role="tablist" aria-label="Study mode">
                 <button className={studyMode === 'quiz' ? 'selected' : ''} type="button" role="tab" aria-selected={studyMode === 'quiz'} onClick={() => setStudyMode('quiz')}><Icon name="quiz" size={15} /> Quiz</button>
                 <button className={studyMode === 'flashcards' ? 'selected' : ''} type="button" role="tab" aria-selected={studyMode === 'flashcards'} onClick={() => { if (studyMode !== 'flashcards') startFlashcards() }}><Icon name="cards" size={15} /> Flashcards</button>
@@ -224,7 +252,7 @@ function QuizPage({ selectedQuiz, onSave, onReset, onToast, accessToken }) {
         </section>
 
         <aside className="quiz-aside">
-          <div className="quiz-progress-card"><div className="progress-card-top"><span className="aside-label">YOUR PRACTICE RHYTHM</span><span className="progress-streak"><Icon name="bolt" size={13} /> 1 day</span></div><div className="practice-days">{['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => <div className={`practice-day ${index === 2 ? 'today' : ''}`} key={`${day}-${index}`}><span>{day}</span><i>{index < 2 ? <Icon name="check" size={12} /> : ''}</i></div>)}</div><p>Every bit of practice counts. You're building a good habit.</p></div>
+          <div className="quiz-progress-card adaptive-note-card"><div className="progress-card-top"><span className="aside-label">ADAPTED TO YOUR PRACTICE</span><span className="progress-streak"><Icon name="spark" size={13} /> {adaptiveLevel.label}</span></div><p>{adaptiveLevel.explanation}</p><small>Save quiz results to help tune future practice.</small></div>
           <div className="aside-card quiz-tip"><span className="aside-card-icon"><Icon name="spark" size={17} /></span><span className="aside-label">LEARNING TIP</span><h3>It's okay to get one wrong.</h3><p>Retrieving an answer from memory helps strengthen it. The explanation is part of the practice.</p></div>
         </aside>
       </div>

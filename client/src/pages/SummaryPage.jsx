@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../components/Icon.jsx'
+import DocumentImport from '../components/DocumentImport.jsx'
 import { sampleNotes } from '../data/mockData.js'
 import { createSummary } from '../lib/api.js'
 
@@ -16,6 +17,16 @@ function SummaryPage({ selectedSummary, onSave, onToast, onReset, accessToken })
   const utteranceRef = useRef(null)
   const activeWordRef = useRef(null)
   const noteCount = notes.length
+
+  function importDocument(text, documentTitle) {
+    stopReading()
+    setNotes(text)
+    setTitle(documentTitle)
+    setResult(null)
+    setIsSaved(false)
+    setError('')
+    onReset()
+  }
 
   const speechAvailable = typeof window !== 'undefined'
     && 'speechSynthesis' in window
@@ -34,6 +45,11 @@ function SummaryPage({ selectedSummary, onSave, onToast, onReset, accessToken })
 
   useEffect(() => {
     stopReading()
+    if (!selectedSummary) {
+      setIsSaved(false)
+      setError('')
+      return
+    }
     setNotes(selectedSummary?.sourceText || '')
     setTitle(selectedSummary?.title || '')
     setResult(selectedSummary?.content || null)
@@ -180,7 +196,8 @@ function SummaryPage({ selectedSummary, onSave, onToast, onReset, accessToken })
           <div className="card-heading"><div><span className="card-step">01</span><div><h2>Your study material</h2><p>Paste the notes you'd like to simplify.</p></div></div><span className="private-label"><Icon name="book" size={13} /> PRIVATE</span></div>
           <label className="field-label" htmlFor="summary-title">Give it a name <span>Optional</span></label>
           <input id="summary-title" className="text-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Cellular respiration" maxLength={80} />
-          <div className="textarea-label-row"><label className="field-label" htmlFor="notes-input">Your notes</label><button className="quiet-button" type="button" onClick={() => { setNotes(sampleNotes); setError('') }}>Use sample notes</button></div>
+          <div className="textarea-label-row"><label className="field-label" htmlFor="notes-input">Your notes</label><button className="quiet-button" type="button" onClick={() => { setNotes(sampleNotes); setResult(null); setIsSaved(false); setError(''); onReset() }}>Use sample notes</button></div>
+          <DocumentImport onImport={importDocument} disabled={isLoading} />
           <textarea id="notes-input" className="notes-textarea" value={notes} onChange={(event) => { setNotes(event.target.value); setError('') }} placeholder="Paste your lecture notes, textbook excerpts, or study material here..." maxLength={12000} />
           <div className="input-meta"><span><Icon name="clock" size={13} /> About 2 min to read</span><span>{noteCount.toLocaleString()} / 12,000</span></div>
           {error && <div className="form-error" role="alert"><Icon name="close" size={15} /> {error}</div>}

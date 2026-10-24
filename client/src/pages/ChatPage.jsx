@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Icon from '../components/Icon.jsx'
 import { promptSuggestions } from '../data/mockData.js'
 import { sendChatMessage } from '../lib/api.js'
@@ -7,11 +7,22 @@ function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken 
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [voiceError, setVoiceError] = useState('')
+  const [isListening, setIsListening] = useState(false)
+  const [voicePreview, setVoicePreview] = useState('')
+  const recognitionRef = useRef(null)
+  const voiceBaseRef = useRef('')
+
+  useEffect(() => () => recognitionRef.current?.abort(), [])
 
   async function sendQuestion(question = input, options = {}) {
     const text = question.trim()
     if (!text || isLoading) return
 
+    recognitionRef.current?.abort()
+    recognitionRef.current = null
+    setIsListening(false)
+    setVoicePreview('')
     setError('')
     setInput('')
     setIsLoading(true)
@@ -37,8 +48,61 @@ function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken 
   }
 
   function resetChat() {
+    recognitionRef.current?.abort()
+    recognitionRef.current = null
+    setIsListening(false)
+    setVoicePreview('')
     onMessagesChange([])
     setError('')
+  }
+
+  function toggleVoiceInput() {
+    setVoiceError('')
+    if (isListening) {
+      recognitionRef.current?.stop()
+      return
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setVoiceError('Voice input is not supported in this browser. Please type your question instead.')
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    recognition.lang = navigator.language || 'en-US'
+    recognition.continuous = true
+    recognition.interimResults = true
+    voiceBaseRef.current = input.trim()
+    recognition.onresult = (event) => {
+      const finalText = Array.from(event.results).filter((result) => result.isFinal).map((result) => result[0].transcript.trim()).filter(Boolean).join(' ')
+      const interimText = Array.from(event.results).filter((result) => !result.isFinal).map((result) => result[0].transcript.trim()).filter(Boolean).join(' ')
+      const combined = [voiceBaseRef.current, finalText].filter(Boolean).join(' ')
+      setInput(combined.slice(0, 1200))
+      setVoicePreview(interimText)
+    }
+    recognition.onerror = (event) => {
+      setIsListening(false)
+      setVoicePreview('')
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        setVoiceError('Microphone access was denied. Allow microphone access in your browser settings, or type your question.')
+      } else if (event.error !== 'aborted' && event.error !== 'no-speech') {
+        setVoiceError('Voice input stopped unexpectedly. Please try again or type your question.')
+      }
+    }
+    recognition.onend = () => {
+      setIsListening(false)
+      setVoicePreview('')
+      recognitionRef.current = null
+    }
+    recognitionRef.current = recognition
+    try {
+      recognition.start()
+      setIsListening(true)
+    } catch {
+      recognitionRef.current = null
+      setIsListening(false)
+      setVoiceError('Could not start voice input. Check microphone permission and try again.')
+    }
   }
 
   return (
@@ -79,7 +143,9 @@ function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken 
           <form className="chat-composer" onSubmit={(event) => { event.preventDefault(); sendQuestion() }}>
             <label className="sr-only" htmlFor="chat-input">Your question</label>
             <textarea id="chat-input" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendQuestion() } }} placeholder="Ask a question or paste a tricky concept..." rows="2" maxLength={1200} />
-            <div className="composer-bottom"><span>StudyMate can make mistakes. Check important facts.</span><button className="send-button" type="submit" aria-label="Send question" disabled={!input.trim() || isLoading}><Icon name="send" size={17} /></button></div>
+            {isListening && <div className="voice-listening-status" role="status"><span className="voice-pulse" /> Listening{voicePreview ? `: ${voicePreview}` : '…'}</div>}
+            {voiceError && <div className="voice-input-error" role="alert">{voiceError}</div>}
+            <div className="composer-bottom"><span>StudyMate can make mistakes. Check important facts.</span><div className="composer-controls"><button className={`voice-button ${isListening ? 'is-listening' : ''}`} type="button" onClick={toggleVoiceInput} aria-label={isListening ? 'Stop voice input' : 'Ask by voice'} title={isListening ? 'Stop voice input' : 'Ask by voice'} disabled={isLoading}><Icon name="mic" size={17} /></button><button className="send-button" type="submit" aria-label="Send question" disabled={!input.trim() || isLoading}><Icon name="send" size={17} /></button></div></div>
           </form>
         </section>
 
