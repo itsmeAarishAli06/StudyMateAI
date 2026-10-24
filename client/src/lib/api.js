@@ -44,6 +44,14 @@ export function getHealth() {
   return request('/api/health')
 }
 
+export function getAiDailyUsage(token) {
+  return request('/api/ai-usage', undefined, token).then((result) => result.usage)
+}
+
+function notifyAiUsageRefresh() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('studymate:ai-usage-refresh'))
+}
+
 export function getStudyItems(token) {
   return request('/api/study-items', undefined, token).then((result) => result.items)
 }
@@ -75,19 +83,31 @@ export async function sendChatMessage(message, history = [], token) {
       .slice(-20)
       .map(({ role, text }) => ({ role, text: text.trim().slice(0, 1200) }))
     : []
-  const result = await request('/api/chat', { message, history: normalizedHistory }, token)
-  return result.answer
+  try {
+    const result = await request('/api/chat', { message, history: normalizedHistory }, token)
+    return result.answer
+  } finally {
+    notifyAiUsageRefresh()
+  }
 }
 
-export function createSummary(notes, title, token) {
-  return request('/api/summaries', { notes, title }, token)
+export async function createSummary(notes, title, token) {
+  try {
+    return await request('/api/summaries', { notes, title }, token)
+  } finally {
+    notifyAiUsageRefresh()
+  }
 }
 
-export function createQuiz({ topic, notes, sourceType = 'topic', questionCount = 5, difficulty }, token) {
-  return request('/api/quizzes', {
-    ...(sourceType === 'topic' ? { topic } : { notes }),
-    sourceType,
-    questionCount,
-    ...(difficulty ? { difficulty } : {}),
-  }, token)
+export async function createQuiz({ topic, notes, sourceType = 'topic', questionCount = 5, difficulty }, token) {
+  try {
+    return await request('/api/quizzes', {
+      ...(sourceType === 'topic' ? { topic } : { notes }),
+      sourceType,
+      questionCount,
+      ...(difficulty ? { difficulty } : {}),
+    }, token)
+  } finally {
+    notifyAiUsageRefresh()
+  }
 }

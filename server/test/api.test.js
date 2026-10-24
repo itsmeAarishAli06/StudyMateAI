@@ -93,10 +93,131 @@ test('AI routes require a verified account when Supabase is configured', async (
     const authorized = await authorizedRequest('/api/chat', {
       method: 'POST',
       body: { message: 'Explain photosynthesis' },
-      fakeFetch: async () => Response.json({ id: 'user-123' }),
+      fakeFetch: async (input) => new URL(input).pathname === '/auth/v1/user'
+        ? Response.json({ id: 'user-123' })
+        : Response.json([{ allowed: true, used: 1, remaining: 39, daily_limit: 40, resets_at: '2026-10-25T00:00:00Z' }]),
     })
     assert.equal(authorized.status, 200)
     assert.match((await authorized.json()).answer, /Photosynthesis/)
+  } finally {
+    if (oldUrl === undefined) delete process.env.SUPABASE_URL
+    else process.env.SUPABASE_URL = oldUrl
+    if (oldKey === undefined) delete process.env.SUPABASE_ANON_KEY
+    else process.env.SUPABASE_ANON_KEY = oldKey
+  }
+})
+
+test('GET /api/ai-usage returns only the verified user daily quota', async () => {
+  const oldUrl = process.env.SUPABASE_URL
+  const oldKey = process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_URL = 'https://example.supabase.co'
+  process.env.SUPABASE_ANON_KEY = 'public-test-key'
+  try {
+    const missing = await fetch(`${baseUrl}/api/ai-usage`)
+    assert.equal(missing.status, 401)
+
+    const response = await authorizedRequest('/api/ai-usage', {
+      fakeFetch: async (input) => {
+        const url = new URL(input)
+        if (url.pathname === '/auth/v1/user') return Response.json({ id: 'user-usage-123' })
+        assert.equal(url.pathname, '/rest/v1/rpc/get_ai_daily_usage')
+        return Response.json([{ used: 7, remaining: 33, daily_limit: 40, resets_at: '2026-10-25T00:00:00Z' }])
+      },
+    })
+    assert.equal(response.status, 200)
+    assert.deepEqual((await response.json()).usage, {
+      used: 7, remaining: 33, dailyLimit: 40, resetsAt: '2026-10-25T00:00:00Z',
+    })
+  } finally {
+    if (oldUrl === undefined) delete process.env.SUPABASE_URL
+    else process.env.SUPABASE_URL = oldUrl
+    if (oldKey === undefined) delete process.env.SUPABASE_ANON_KEY
+    else process.env.SUPABASE_ANON_KEY = oldKey
+  }
+})
+
+test('AI generation enforces the persistent per-user daily limit and fails closed on quota database errors', async () => {
+  const oldUrl = process.env.SUPABASE_URL
+  const oldKey = process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_URL = 'https://example.supabase.co'
+  process.env.SUPABASE_ANON_KEY = 'public-test-key'
+  const fakeFetch = async (input) => {
+    const url = new URL(input)
+    if (url.pathname === '/auth/v1/user') return Response.json({ id: 'user-quota-123' })
+    if (url.pathname === '/rest/v1/rpc/consume_ai_daily_request') {
+      return Response.json([{ allowed: false, used: 40, remaining: 0, daily_limit: 40, resets_at: '2026-10-25T00:00:00Z' }])
+    }
+    throw new Error(`Unexpected request: ${url.pathname}`)
+  }
+  try {
+    const limited = await authorizedRequest('/api/chat', {
+      method: 'POST', body: { message: 'Explain photosynthesis' }, fakeFetch,
+    })
+    assert.equal(limited.status, 429)
+    const payload = await limited.json()
+    assert.equal(payload.error.code, 'AI_DAILY_LIMIT_REACHED')
+    assert.equal(payload.error.details.usage.remaining, 0)
+
+    const unavailable = await authorizedRequest('/api/chat', {
+      method: 'POST', body: { message: 'Explain photosynthesis' },
+      fakeFetch: async (input) => {
+        if (new URL(input).pathname === '/auth/v1/user') return Response.json({ id: 'user-quota-123' })
+        return Response.json({ message: 'private database detail' }, { status: 500 })
+      },
+    })
+    assert.equal(unavailable.status, 503)
+    assert.equal((await unavailable.json()).error.code, 'AI_QUOTA_UNAVAILABLE')
+  } finally {
+    if (oldUrl === undefined) delete process.env.SUPABASE_URL
+    else process.env.SUPABASE_URL = oldUrl
+    if (oldKey === undefined) delete process.env.SUPABASE_ANON_KEY
+    else process.env.SUPABASE_ANON_KEY = oldKey
+  }
+})
+
+test('production AI generation fails closed when account quota configuration is missing', async () => {
+  const oldNodeEnv = process.env.NODE_ENV
+  process.env.NODE_ENV = 'production'
+  try {
+    const response = await post('/api/chat', { message: 'Explain photosynthesis' })
+    assert.equal(response.status, 503)
+    assert.equal((await response.json()).error.code, 'AI_QUOTA_UNAVAILABLE')
+  } finally {
+    if (oldNodeEnv === undefined) delete process.env.NODE_ENV
+    else process.env.NODE_ENV = oldNodeEnv
+  }
+})
+
+test('chat, summary, and quiz all consume one quota unit after request validation', async () => {
+  const oldUrl = process.env.SUPABASE_URL
+  const oldKey = process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_URL = 'https://example.supabase.co'
+  process.env.SUPABASE_ANON_KEY = 'public-test-key'
+  let consumeCalls = 0
+  const fakeFetch = async (input) => {
+    const url = new URL(input)
+    if (url.pathname === '/auth/v1/user') return Response.json({ id: 'user-tools-123' })
+    if (url.pathname === '/rest/v1/rpc/consume_ai_daily_request') {
+      consumeCalls += 1
+      return Response.json([{ allowed: true, used: consumeCalls, remaining: 40 - consumeCalls, daily_limit: 40, resets_at: '2026-10-25T00:00:00Z' }])
+    }
+    throw new Error(`Unexpected request: ${url.pathname}`)
+  }
+  try {
+    const invalid = await authorizedRequest('/api/chat', { method: 'POST', body: { message: ' ' }, fakeFetch })
+    assert.equal(invalid.status, 400)
+    assert.equal(consumeCalls, 0)
+
+    const requests = [
+      ['/api/chat', { message: 'Explain photosynthesis' }],
+      ['/api/summaries', { notes: 'Photosynthesis turns light, water, and carbon dioxide into glucose and oxygen.' }],
+      ['/api/quizzes', { topic: 'Photosynthesis', questionCount: 3 }],
+    ]
+    for (const [path, body] of requests) {
+      const response = await authorizedRequest(path, { method: 'POST', body, fakeFetch })
+      assert.equal(response.status, 200, path)
+    }
+    assert.equal(consumeCalls, 3)
   } finally {
     if (oldUrl === undefined) delete process.env.SUPABASE_URL
     else process.env.SUPABASE_URL = oldUrl

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './components/Icon.jsx'
 import Sidebar from './components/Sidebar.jsx'
-import { createStudyItem, getHealth, getStudyItems } from './lib/api.js'
+import { createStudyItem, getAiDailyUsage, getHealth, getStudyItems } from './lib/api.js'
 import { authConfigured, getSession, signIn, signOut, signUp } from './lib/auth.js'
 import ChatPage from './pages/ChatPage.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -43,6 +43,8 @@ function App() {
   const profileMenuRef = useRef(null)
   const [apiStatus, setApiStatus] = useState('checking')
   const [aiMode, setAiMode] = useState('demo')
+  const [aiUsage, setAiUsage] = useState(null)
+  const [aiUsageStatus, setAiUsageStatus] = useState('idle')
   const [historyStatus, setHistoryStatus] = useState(authConfigured ? 'loading' : 'demo')
 
   useEffect(() => {
@@ -77,6 +79,36 @@ function App() {
       setAuthError(error.message)
     })
     return () => { active = false }
+  }, [session?.access_token])
+
+  useEffect(() => {
+    const token = session?.access_token
+    if (!authConfigured || !token) {
+      setAiUsage(null)
+      setAiUsageStatus('idle')
+      return undefined
+    }
+
+    let active = true
+    async function refreshUsage() {
+      setAiUsageStatus((status) => status === 'ready' ? 'refreshing' : 'loading')
+      try {
+        const usage = await getAiDailyUsage(token)
+        if (!active) return
+        setAiUsage(usage)
+        setAiUsageStatus('ready')
+      } catch {
+        if (!active) return
+        setAiUsageStatus('error')
+      }
+    }
+
+    window.addEventListener('studymate:ai-usage-refresh', refreshUsage)
+    refreshUsage()
+    return () => {
+      active = false
+      window.removeEventListener('studymate:ai-usage-refresh', refreshUsage)
+    }
   }, [session?.access_token])
 
   useEffect(() => {
@@ -206,6 +238,13 @@ function App() {
           <div className="mobile-brand"><span className="brand-symbol"><Icon name="spark" size={17} /></span><span className="brand-name">studymate<span>AI</span></span></div>
           <div className="breadcrumb"><span>Workspace</span><Icon name="chevron" size={13} /><strong>{pageNames[activePage]}</strong></div>
           <div className="topbar-actions">
+            {authConfigured && aiUsage && (
+              <div className="ai-usage-quick" role="status" aria-live="polite" aria-label={`${aiUsage.used} of ${aiUsage.dailyLimit} daily AI requests used; ${aiUsage.remaining} remaining`} title={`${aiUsage.used} used today · ${aiUsage.remaining} remaining · resets at ${new Date(aiUsage.resetsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}>
+                <span className="ai-usage-quick-dot" />
+                <strong>{aiUsage.remaining} / {aiUsage.dailyLimit}</strong>
+                <span className="ai-usage-quick-label">left today</span>
+              </div>
+            )}
             <div className="profile-menu-wrap" ref={profileMenuRef}>
               <button
                 className="profile-menu-trigger"
@@ -213,7 +252,11 @@ function App() {
                 aria-haspopup="menu"
                 aria-expanded={profileOpen}
                 aria-label={authConfigured ? `Account menu for ${session.user.email}` : 'Open guest profile menu'}
-                onClick={() => setProfileOpen((open) => !open)}
+                onClick={() => {
+                  const opening = !profileOpen
+                  setProfileOpen(opening)
+                  if (opening && authConfigured) window.dispatchEvent(new Event('studymate:ai-usage-refresh'))
+                }}
               >
                 <span className="topbar-avatar">{authConfigured ? session.user.email?.[0]?.toUpperCase() || 'S' : 'S'}</span>
                 <span className="profile-trigger-copy"><strong>{authConfigured ? 'My account' : 'Guest session'}</strong><small>{authConfigured ? session.user.email : 'Local workspace'}</small></span>
@@ -225,6 +268,19 @@ function App() {
                     <span className="profile-menu-avatar">{authConfigured ? session.user.email?.[0]?.toUpperCase() || 'S' : 'S'}</span>
                     <span><strong>{authConfigured ? 'Signed in' : 'Guest workspace'}</strong><small>{authConfigured ? session.user.email : 'Your saved work stays in this browser.'}</small></span>
                   </div>
+                  {authConfigured && (
+                    <section className="ai-usage-card" aria-label="Daily AI request usage" aria-live="polite">
+                      <div className="ai-usage-heading"><strong>AI requests today</strong><span>{aiUsageStatus === 'ready' || aiUsageStatus === 'refreshing' ? `${aiUsage.used} / ${aiUsage.dailyLimit}` : 'Daily limit'}</span></div>
+                      {aiUsage && <div className="ai-usage-track" role="progressbar" aria-label="Daily AI requests used" aria-valuemin="0" aria-valuemax={aiUsage.dailyLimit} aria-valuenow={aiUsage.used}><span style={{ width: `${Math.min(100, (aiUsage.used / aiUsage.dailyLimit) * 100)}%` }} /></div>}
+                      <div className="ai-usage-foot">
+                        {aiUsageStatus === 'ready' || aiUsageStatus === 'refreshing'
+                          ? <><span>{aiUsage.remaining} remaining</span><small>Resets {new Date(aiUsage.resetsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></>
+                          : aiUsageStatus === 'error'
+                            ? <><span>Usage unavailable</span><button type="button" onClick={() => window.dispatchEvent(new Event('studymate:ai-usage-refresh'))}>Retry</button></>
+                            : <span>Loading your daily allowance…</span>}
+                      </div>
+                    </section>
+                  )}
                   {authConfigured
                     ? <button className="profile-menu-signout" type="button" role="menuitem" onClick={handleSignOut}><Icon name="logout" size={16} />Sign out</button>
                     : <div className="profile-menu-note">Sign in becomes available when account authentication is configured.</div>}

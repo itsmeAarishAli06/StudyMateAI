@@ -9,6 +9,7 @@ import summariesRouter from './routes/summaries.js'
 import quizzesRouter from './routes/quizzes.js'
 import studyItemsRouter from './routes/studyItems.js'
 import studyPlansRouter from './routes/studyPlans.js'
+import aiUsageRouter from './routes/aiUsage.js'
 import { createAiRateLimiterFromEnvironment } from './middleware/rateLimit.js'
 import { requireAiAccount } from './middleware/requireSupabaseUser.js'
 
@@ -50,6 +51,7 @@ app.get('/', (_request, response) => {
 })
 
 app.use('/api/health', healthRouter)
+app.use('/api/ai-usage', aiUsageRouter)
 app.use('/api/chat', aiRateLimit, requireAiAccount, chatRouter)
 app.use('/api/summaries', aiRateLimit, requireAiAccount, summariesRouter)
 app.use('/api/quizzes', aiRateLimit, requireAiAccount, quizzesRouter)
@@ -67,7 +69,7 @@ app.use((_request, response) => {
 
 app.use((error, _request, response, _next) => {
   if (error.status && error.code) {
-    response.status(error.status).json({ error: { code: error.code, message: error.message } })
+    response.status(error.status).json({ error: { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) } })
     return
   }
 

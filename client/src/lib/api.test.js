@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createQuiz, createStudyItem, createSummary, getStudyItems, sendChatMessage } from './api.js'
+import { createQuiz, createStudyItem, createSummary, getAiDailyUsage, getStudyItems, sendChatMessage } from './api.js'
 
 function jsonResponse(payload, ok = true, status = ok ? 200 : 400) {
   return { ok, status, json: async () => payload }
@@ -17,6 +17,18 @@ describe('StudyMate API client', () => {
     expect(fetch).toHaveBeenCalledWith('http://localhost:3000/api/chat', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({ message: 'What is ATP?', history: [{ role: 'user', text: 'Explain energy' }] }),
+    }))
+  })
+
+  it('loads the signed-in account daily AI usage', async () => {
+    const usage = { used: 7, remaining: 33, dailyLimit: 40, resetsAt: '2026-10-25T00:00:00Z' }
+    const fetch = vi.fn().mockResolvedValue(jsonResponse({ usage }))
+    vi.stubGlobal('fetch', fetch)
+
+    await expect(getAiDailyUsage('user-token')).resolves.toEqual(usage)
+    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/api/ai-usage', expect.objectContaining({
+      method: 'GET',
+      headers: { authorization: 'Bearer user-token' },
     }))
   })
 

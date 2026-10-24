@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { AppError, validateText } from '../lib/errors.js'
+import { consumeAiDailyRequest } from '../services/aiUsage.js'
 import { createQuiz } from '../services/study.js'
 
 const router = Router()
@@ -14,6 +15,7 @@ router.post('/', async (request, response) => {
   if (![3, 5].includes(questionCount)) throw new AppError(400, 'VALIDATION_ERROR', 'questionCount must be either 3 or 5.')
   const difficulty = request.body?.difficulty ?? 'standard'
   if (!['easy', 'standard', 'challenging'].includes(difficulty)) throw new AppError(400, 'VALIDATION_ERROR', 'difficulty must be "easy", "standard", or "challenging".')
+  await consumeAiDailyRequest(request)
   const quiz = await createQuiz(source, questionCount, sourceType, difficulty)
   response.json(quiz)
 })
