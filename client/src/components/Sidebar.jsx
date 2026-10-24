@@ -1,4 +1,5 @@
 import Icon from './Icon.jsx'
+import BrandMark from './BrandMark.jsx'
 
 export const navigationItems = [
   { id: 'home', label: 'Overview', icon: 'home' },
@@ -40,8 +41,8 @@ function Sidebar({ activePage, onNavigate, aiMode = 'demo' }) {
     <>
       <aside className="sidebar">
         <button className="brand-lockup" type="button" onClick={() => onNavigate('home')}>
-          <span className="brand-symbol"><Icon name="spark" size={19} /></span>
-          <span className="brand-name">studymate<span>AI</span></span>
+          <span className="brand-symbol"><BrandMark className="brand-mark-graphic" /></span>
+          <span className="brand-name">StudyMate<span>AI</span></span>
         </button>
 
         <div className="sidebar-label">WORKSPACE</div>

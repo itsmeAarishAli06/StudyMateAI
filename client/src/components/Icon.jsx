@@ -31,6 +31,10 @@ const iconPaths = {
   bolt: <><path d="m13 2-3 9h7L9 22l2-9H5z" /></>,
   refresh: <><path d="M20 7v5h-5M4 17v-5h5" /><path d="M5.6 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.4-3" /></>,
   lightbulb: <><path d="M9 18h6M10 22h4" /><path d="M8.2 14.5A6 6 0 1 1 15.8 14.5c-.8.7-1.3 1.6-1.5 2.5h-4.6c-.2-.9-.7-1.8-1.5-2.5Z" /></>,
+  linkedin: <><path d="M6.5 9.5v9M6.5 6.5h.01M11 18.5v-9h4v1.5a3 3 0 0 1 6 0v7.5M11 13a3 3 0 0 1 6 0v5.5" /></>,
+  external: <><path d="M14 4h6v6M20 4l-9 9" /><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" /></>,
+  briefcase: <><rect x="3" y="7" width="18" height="14" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v2h4v-2" /></>,
+  mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></>,
 }
 
 function Icon({ name, size = 18, strokeWidth = 1.8, className = '' }) {

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './components/Icon.jsx'
+import BrandMark from './components/BrandMark.jsx'
+import SiteFooter from './components/SiteFooter.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import { createStudyItem, getAiDailyUsage, getHealth, getStudyItems } from './lib/api.js'
 import { authConfigured, getSession, signIn, signOut, signUp } from './lib/auth.js'
@@ -41,6 +43,7 @@ function App() {
   const [toast, setToast] = useState('')
   const [profileOpen, setProfileOpen] = useState(false)
   const profileMenuRef = useRef(null)
+  const profileTriggerRef = useRef(null)
   const [apiStatus, setApiStatus] = useState('checking')
   const [aiMode, setAiMode] = useState('demo')
   const [aiUsage, setAiUsage] = useState(null)
@@ -131,6 +134,7 @@ function App() {
     function closeMenu(event) {
       if (event.type === 'keydown' && event.key === 'Escape') {
         setProfileOpen(false)
+        profileTriggerRef.current?.focus()
         return
       }
       if (event.type === 'pointerdown' && !profileMenuRef.current?.contains(event.target)) {
@@ -235,8 +239,8 @@ function App() {
       <Sidebar activePage={activePage} onNavigate={setActivePage} aiMode={apiStatus === 'offline' ? 'offline' : aiMode} />
       <div className="workspace">
         <header className="workspace-topbar">
-          <div className="mobile-brand"><span className="brand-symbol"><Icon name="spark" size={17} /></span><span className="brand-name">studymate<span>AI</span></span></div>
-          <div className="breadcrumb"><span>Workspace</span><Icon name="chevron" size={13} /><strong>{pageNames[activePage]}</strong></div>
+          <div className="mobile-brand"><span className="brand-symbol"><BrandMark className="brand-mark-graphic" /></span><span className="brand-name">StudyMate<span>AI</span></span></div>
+          <div className="breadcrumb"><span>Workspace</span><Icon name="chevron" size={13} /><strong aria-current="page">{pageNames[activePage]}</strong></div>
           <div className="topbar-actions">
             {authConfigured && aiUsage && (
               <div className="ai-usage-quick" role="status" aria-live="polite" aria-label={`${aiUsage.used} of ${aiUsage.dailyLimit} daily AI requests used; ${aiUsage.remaining} remaining`} title={`${aiUsage.used} used today · ${aiUsage.remaining} remaining · resets at ${new Date(aiUsage.resetsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}>
@@ -249,7 +253,8 @@ function App() {
               <button
                 className="profile-menu-trigger"
                 type="button"
-                aria-haspopup="menu"
+                ref={profileTriggerRef}
+                aria-controls="account-popover"
                 aria-expanded={profileOpen}
                 aria-label={authConfigured ? `Account menu for ${session.user.email}` : 'Open guest profile menu'}
                 onClick={() => {
@@ -263,7 +268,7 @@ function App() {
                 <Icon name="chevron" size={15} />
               </button>
               {profileOpen && (
-                <div className="profile-menu" role="menu" aria-label="Account options">
+                <div className="profile-menu" id="account-popover" role="region" aria-label="Account and daily usage">
                   <div className="profile-menu-heading">
                     <span className="profile-menu-avatar">{authConfigured ? session.user.email?.[0]?.toUpperCase() || 'S' : 'S'}</span>
                     <span><strong>{authConfigured ? 'Signed in' : 'Guest workspace'}</strong><small>{authConfigured ? session.user.email : 'Your saved work stays in this browser.'}</small></span>
@@ -282,7 +287,7 @@ function App() {
                     </section>
                   )}
                   {authConfigured
-                    ? <button className="profile-menu-signout" type="button" role="menuitem" onClick={handleSignOut}><Icon name="logout" size={16} />Sign out</button>
+                    ? <button className="profile-menu-signout" type="button" onClick={handleSignOut}><Icon name="logout" size={16} />Sign out</button>
                     : <div className="profile-menu-note">Sign in becomes available when account authentication is configured.</div>}
                 </div>
               )}
@@ -302,6 +307,12 @@ function App() {
           {activePage === 'history' && <HistoryPage items={items} onOpenItem={openItem} onNavigate={setActivePage} />}
           {activePage === 'planner' && <StudyPlanPage accessToken={session?.access_token} onToast={setToast} />}
         </main>
+        <SiteFooter
+          onNavigate={setActivePage}
+          linkedinUrl="https://www.linkedin.com/in/aarish-ali-a20704367/"
+          portfolioUrl="https://aarishali.infinityfreeapp.com/"
+          contactEmail="itsmeaarish06@gmail.com"
+        />
       </div>
 
       {toast && <div className="toast-message" role="status"><span className="toast-check"><Icon name="check" size={14} /></span>{toast}<button type="button" aria-label="Dismiss message" onClick={() => setToast('')}><Icon name="close" size={15} /></button></div>}
@@ -310,7 +321,7 @@ function App() {
 }
 
 function AuthLoading() {
-  return <main className="auth-shell"><div className="auth-loading-card" role="status"><span className="auth-brand-mark"><Icon name="spark" size={21} /></span><span className="button-spinner" /><h1>Loading your study space</h1><p>Getting everything ready for you.</p></div></main>
+  return <main className="auth-shell"><div className="auth-loading-card" role="status"><span className="auth-brand-mark"><BrandMark className="brand-mark-graphic" /></span><span className="button-spinner" /><h1>Loading your study space</h1><p>Getting everything ready for you.</p></div></main>
 }
 
 function AuthScreen({ error, onSubmit }) {
@@ -332,7 +343,7 @@ function AuthScreen({ error, onSubmit }) {
     <main className="auth-shell">
       <div className="auth-frame">
         <section className="auth-story" aria-label="StudyMate introduction">
-          <div className="auth-brand"><span className="auth-brand-mark"><Icon name="spark" size={21} /></span><span>StudyMate<span>AI</span></span></div>
+          <div className="auth-brand"><span className="auth-brand-mark"><BrandMark className="brand-mark-graphic" /></span><span>StudyMate<span>AI</span></span></div>
           <div className="auth-story-copy">
             <span className="auth-eyebrow"><i /> YOUR PERSONAL STUDY SPACE</span>
             <h2>Make room for<br /><em>what you&apos;ll become.</em></h2>
@@ -348,7 +359,7 @@ function AuthScreen({ error, onSubmit }) {
         </section>
 
         <section className="auth-card">
-          <div className="auth-mobile-brand"><span className="auth-brand-mark"><Icon name="spark" size={19} /></span><span>StudyMate<span>AI</span></span></div>
+          <div className="auth-mobile-brand"><span className="auth-brand-mark"><BrandMark className="brand-mark-graphic" /></span><span>StudyMate<span>AI</span></span></div>
           <div className="auth-form-heading"><span className="auth-form-kicker">{isSignIn ? 'WELCOME BACK' : 'A FRESH START'}</span><h1>{isSignIn ? 'Sign in to your space.' : 'Create your account.'}</h1><p>{isSignIn ? 'Pick up right where your learning left off.' : 'Set up your private study space in a moment.'}</p></div>
           <form onSubmit={submit}>
             <label className="field-label" htmlFor="auth-email">Email address</label>
