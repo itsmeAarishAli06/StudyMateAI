@@ -95,7 +95,7 @@ test('AI routes require a verified account when Supabase is configured', async (
       body: { message: 'Explain photosynthesis' },
       fakeFetch: async (input) => new URL(input).pathname === '/auth/v1/user'
         ? Response.json({ id: 'user-123' })
-        : Response.json([{ allowed: true, used: 1, remaining: 39, daily_limit: 40, resets_at: '2026-10-25T00:00:00Z' }]),
+        : Response.json([{ allowed: true, used: 1, remaining: 29, daily_limit: 30, resets_at: '2026-10-25T00:00:00Z' }]),
     })
     assert.equal(authorized.status, 200)
     assert.match((await authorized.json()).answer, /Photosynthesis/)
@@ -121,12 +121,12 @@ test('GET /api/ai-usage returns only the verified user daily quota', async () =>
         const url = new URL(input)
         if (url.pathname === '/auth/v1/user') return Response.json({ id: 'user-usage-123' })
         assert.equal(url.pathname, '/rest/v1/rpc/get_ai_daily_usage')
-        return Response.json([{ used: 7, remaining: 33, daily_limit: 40, resets_at: '2026-10-25T00:00:00Z' }])
+        return Response.json([{ used: 7, remaining: 23, daily_limit: 30, resets_at: '2026-10-25T00:00:00Z' }])
       },
     })
     assert.equal(response.status, 200)
     assert.deepEqual((await response.json()).usage, {
-      used: 7, remaining: 33, dailyLimit: 40, resetsAt: '2026-10-25T00:00:00Z',
+      used: 7, remaining: 23, dailyLimit: 30, resetsAt: '2026-10-25T00:00:00Z',
     })
   } finally {
     if (oldUrl === undefined) delete process.env.SUPABASE_URL
@@ -145,7 +145,7 @@ test('AI generation enforces the persistent per-user daily limit and fails close
     const url = new URL(input)
     if (url.pathname === '/auth/v1/user') return Response.json({ id: 'user-quota-123' })
     if (url.pathname === '/rest/v1/rpc/consume_ai_daily_request') {
-      return Response.json([{ allowed: false, used: 40, remaining: 0, daily_limit: 40, resets_at: '2026-10-25T00:00:00Z' }])
+      return Response.json([{ allowed: false, used: 30, remaining: 0, daily_limit: 30, resets_at: '2026-10-25T00:00:00Z' }])
     }
     throw new Error(`Unexpected request: ${url.pathname}`)
   }
@@ -157,6 +157,7 @@ test('AI generation enforces the persistent per-user daily limit and fails close
     const payload = await limited.json()
     assert.equal(payload.error.code, 'AI_DAILY_LIMIT_REACHED')
     assert.equal(payload.error.details.usage.remaining, 0)
+    assert.equal(payload.error.details.usage.dailyLimit, 30)
 
     const unavailable = await authorizedRequest('/api/chat', {
       method: 'POST', body: { message: 'Explain photosynthesis' },
@@ -199,7 +200,7 @@ test('chat, summary, and quiz all consume one quota unit after request validatio
     if (url.pathname === '/auth/v1/user') return Response.json({ id: 'user-tools-123' })
     if (url.pathname === '/rest/v1/rpc/consume_ai_daily_request') {
       consumeCalls += 1
-      return Response.json([{ allowed: true, used: consumeCalls, remaining: 40 - consumeCalls, daily_limit: 40, resets_at: '2026-10-25T00:00:00Z' }])
+      return Response.json([{ allowed: true, used: consumeCalls, remaining: 30 - consumeCalls, daily_limit: 30, resets_at: '2026-10-25T00:00:00Z' }])
     }
     throw new Error(`Unexpected request: ${url.pathname}`)
   }

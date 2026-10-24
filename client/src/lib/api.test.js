@@ -21,7 +21,7 @@ describe('StudyMate API client', () => {
   })
 
   it('loads the signed-in account daily AI usage', async () => {
-    const usage = { used: 7, remaining: 33, dailyLimit: 40, resetsAt: '2026-10-25T00:00:00Z' }
+    const usage = { used: 7, remaining: 23, dailyLimit: 30, resetsAt: '2026-10-25T00:00:00Z' }
     const fetch = vi.fn().mockResolvedValue(jsonResponse({ usage }))
     vi.stubGlobal('fetch', fetch)
 
