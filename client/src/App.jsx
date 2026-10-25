@@ -5,6 +5,7 @@ import SiteFooter from './components/SiteFooter.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import { createStudyItem, getAiDailyUsage, getHealth, getStudyItems } from './lib/api.js'
 import { authConfigured, getSession, signIn, signOut, signUp } from './lib/auth.js'
+import { getCurrentStreak } from './lib/progress.js'
 import ChatPage from './pages/ChatPage.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
@@ -50,6 +51,8 @@ function App() {
   const [aiUsage, setAiUsage] = useState(null)
   const [aiUsageStatus, setAiUsageStatus] = useState('idle')
   const [historyStatus, setHistoryStatus] = useState(authConfigured ? 'loading' : 'demo')
+  const currentStreak = getCurrentStreak(items)
+  const streakAvailable = !authConfigured || historyStatus === 'ready' || historyStatus === 'demo'
 
   useEffect(() => {
     getHealth().then((health) => {
@@ -243,6 +246,21 @@ function App() {
           <div className="mobile-brand"><span className="brand-symbol"><BrandMark className="brand-mark-graphic" /></span><span className="brand-name">StudyMate<span>AI</span></span></div>
           <div className="breadcrumb"><span>Workspace</span><Icon name="chevron" size={13} /><strong aria-current="page">{pageNames[activePage]}</strong></div>
           <div className="topbar-actions">
+            <button
+              className={`study-streak-quick${streakAvailable && currentStreak > 0 ? ' has-streak' : ''}`}
+              type="button"
+              aria-label={streakAvailable
+                ? `Current study streak: ${currentStreak} ${currentStreak === 1 ? 'day' : 'days'}. Open progress dashboard.`
+                : 'Study streak is loading or unavailable.'}
+              title={streakAvailable
+                ? `${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} based on days you save a summary or quiz. Open your progress dashboard.`
+                : 'Your study streak appears when saved history is available.'}
+              onClick={() => setActivePage('home')}
+            >
+              <Icon name="flame" size={17} />
+              <strong>{streakAvailable ? currentStreak : '—'}</strong>
+              <span>day streak</span>
+            </button>
             {authConfigured && aiUsage && (
               <div className="ai-usage-quick" role="status" aria-live="polite" aria-label={`${aiUsage.used} of ${aiUsage.dailyLimit} daily AI requests used; ${aiUsage.remaining} remaining`} title={`${aiUsage.used} used today · ${aiUsage.remaining} remaining · resets at ${new Date(aiUsage.resetsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}>
                 <span className="ai-usage-quick-dot" />

@@ -1,4 +1,5 @@
 import Icon from '../components/Icon.jsx'
+import { getCurrentStreak } from '../lib/progress.js'
 
 function localDayKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -31,17 +32,7 @@ function getProgress(items) {
     return { key: localDayKey(date), label: date.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1), count: activityByDay.get(localDayKey(date)) || 0, isToday: index === 6 }
   })
 
-  const activeDays = new Set(activityByDay.keys())
-  const cursor = new Date(today)
-  cursor.setHours(0, 0, 0, 0)
-  if (!activeDays.has(localDayKey(cursor))) cursor.setDate(cursor.getDate() - 1)
-  let streak = 0
-  while (activeDays.has(localDayKey(cursor))) {
-    streak += 1
-    cursor.setDate(cursor.getDate() - 1)
-  }
-
-  return { quizzes, scoredQuizzes, days, streak }
+  return { quizzes, scoredQuizzes, days, streak: getCurrentStreak(items, today) }
 }
 
 function Dashboard({ savedItems, onNavigate, onOpenItem }) {
@@ -91,7 +82,7 @@ function Dashboard({ savedItems, onNavigate, onOpenItem }) {
         </div>
         <div className="progress-grid">
           <article className="progress-metric-card">
-            <span className="progress-metric-icon"><Icon name="bolt" size={17} /></span>
+            <span className="progress-metric-icon progress-streak-icon"><Icon name="flame" size={17} /></span>
             <span className="progress-metric-label">CURRENT STREAK</span>
             <strong>{progress.streak}<small> {progress.streak === 1 ? 'day' : 'days'}</small></strong>
             <p>{progress.streak ? 'Keep the momentum going.' : 'Save a study item today to begin.'}</p>

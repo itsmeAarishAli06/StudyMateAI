@@ -772,6 +772,7 @@ body { background: #f3f7f2; }
 .progress-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(210px, 1.2fr); gap: 10px; }
 .progress-metric-card, .progress-week-card { min-width: 0; min-height: 148px; padding: 15px; border: 1px solid #e5ebe3; border-radius: 14px; background: linear-gradient(160deg, #fff, #fbfcfa); box-shadow: 0 8px 22px rgba(39, 62, 44, .035); }
 .progress-metric-icon { width: 31px; height: 31px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 10px; background: #f7f1e5; color: #aa8a50; }
+.progress-streak-icon { background: #fff1df; color: #d88335; }
 .progress-score-icon { background: #eef4ec; color: #648568; }
 .progress-topic-icon { background: #f0eef7; color: #80769f; }
 .progress-metric-label { display: block; color: #929d94; font-size: 9px; font-weight: 800; letter-spacing: .11em; }
@@ -1244,4 +1245,27 @@ body { background: #f3f7f2; }
 }
 @media (prefers-reduced-motion: reduce) {
   .learning-mode-option { transition: none; }
+}
+
+/* Compact streak shortcut in the workspace navigation. */
+.study-streak-quick { min-height: 39px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; border: 1px solid #eee4d4; border-radius: 11px; background: linear-gradient(145deg, #fffaf2, #fff5e8); color: #875b2a; font: inherit; cursor: pointer; white-space: nowrap; transition: transform .17s ease, border-color .17s ease, background .17s ease, box-shadow .17s ease; }
+.study-streak-quick > svg { color: #b48343; transition: transform .2s ease, color .2s ease; }
+.study-streak-quick > strong { color: #62451f; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.study-streak-quick > span { color: #806a4d; font-size: 10px; font-weight: 650; }
+.study-streak-quick.has-streak { border-color: #f0d8b5; background: linear-gradient(145deg, #fff8e9, #fff0d9); }
+.study-streak-quick.has-streak > svg { color: #e18a38; }
+.study-streak-quick:hover { transform: translateY(-1px); border-color: #e6c99f; box-shadow: 0 4px 12px rgba(111, 79, 34, .09); }
+.study-streak-quick:hover > svg { transform: translateY(-1px) scale(1.06); }
+.study-streak-quick:focus-visible { outline: 3px solid rgba(194, 133, 58, .28); outline-offset: 3px; }
+@media (max-width: 760px) {
+  .study-streak-quick { min-height: 35px; gap: 5px; padding-inline: 8px; }
+  .study-streak-quick > span { font-size: 9px; }
+}
+@media (max-width: 430px) {
+  .study-streak-quick { min-height: 33px; gap: 4px; padding-inline: 7px; }
+  .study-streak-quick > span { display: none; }
+  .study-streak-quick > strong { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .study-streak-quick, .study-streak-quick > svg { transition: none; }
 }
