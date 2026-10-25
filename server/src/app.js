@@ -17,6 +17,7 @@ const serverDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 dotenv.config({ path: resolve(serverDirectory, '.env') })
 
 const app = express()
+app.disable('x-powered-by')
 const aiRateLimit = createAiRateLimiterFromEnvironment()
 const trustProxySetting = process.env.TRUST_PROXY_HOPS || '0'
 const trustProxyHops = /^\d+$/.test(trustProxySetting) ? Number(trustProxySetting) : 0

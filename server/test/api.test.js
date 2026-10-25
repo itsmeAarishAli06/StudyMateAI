@@ -36,6 +36,16 @@ async function authorizedRequest(path, { method = 'GET', body, fakeFetch } = {})
   }
 }
 
+test('API responses avoid framework disclosure and include baseline security headers', async () => {
+  const response = await fetch(`${baseUrl}/api/health`)
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('x-powered-by'), null)
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff')
+  assert.equal(response.headers.get('x-frame-options'), 'DENY')
+  assert.equal(response.headers.get('referrer-policy'), 'no-referrer')
+  assert.equal(response.headers.get('cache-control'), 'no-store')
+})
+
 test('POST /api/chat returns an answer and rejects blank input', async () => {
   const success = await post('/api/chat', { message: 'Explain photosynthesis simply' })
   assert.equal(success.status, 200)
@@ -44,6 +54,10 @@ test('POST /api/chat returns an answer and rejects blank input', async () => {
   const invalid = await post('/api/chat', { message: '  ' })
   assert.equal(invalid.status, 400)
   assert.equal((await invalid.json()).error.code, 'VALIDATION_ERROR')
+
+  const invalidMode = await post('/api/chat', { message: 'Explain photosynthesis', mode: 'admin' })
+  assert.equal(invalidMode.status, 400)
+  assert.equal((await invalidMode.json()).error.code, 'VALIDATION_ERROR')
 })
 
 test('POST /api/summaries returns a structured summary and validates note length', async () => {
