@@ -76,7 +76,7 @@ export function deleteStudyPlan(id, token) {
   return request(`/api/study-plans/${encodeURIComponent(id)}`, undefined, token, 'DELETE')
 }
 
-export async function sendChatMessage(message, history = [], token) {
+export async function sendChatMessage(message, history = [], token, mode = 'tutor') {
   const normalizedHistory = Array.isArray(history)
     ? history
       .filter((item) => item && ['user', 'assistant'].includes(item.role) && typeof item.text === 'string' && item.text.trim())
@@ -84,7 +84,7 @@ export async function sendChatMessage(message, history = [], token) {
       .map(({ role, text }) => ({ role, text: text.trim().slice(0, 1200) }))
     : []
   try {
-    const result = await request('/api/chat', { message, history: normalizedHistory }, token)
+    const result = await request('/api/chat', { message, history: normalizedHistory, ...(mode === 'tutor' ? {} : { mode }) }, token)
     return result.answer
   } finally {
     notifyAiUsageRefresh()

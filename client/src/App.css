@@ -1227,3 +1227,21 @@ body { background: #f3f7f2; }
   .site-footer-inner.without-contact .site-footer-main { grid-template-columns: 1fr 1fr; }
   .site-footer-bottom { align-items: flex-start; flex-direction: column; justify-content: center; gap: 5px; padding-top: 12px; }
 }
+
+/* Learning modes stay close to the tutor composer so the selected teaching style is clear. */
+.learning-mode-picker { display: grid; gap: 7px; margin: 0 0 10px; }
+.learning-mode-label { color: #65756a; font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.learning-mode-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.learning-mode-option { min-height: 30px; padding: 0 10px; border: 1px solid #e2e9e1; border-radius: 999px; background: #fff; color: #5c6c60; font: inherit; font-size: 11px; font-weight: 650; cursor: pointer; transition: border-color .16s ease, background .16s ease, color .16s ease, transform .16s ease; }
+.learning-mode-option:hover:not(:disabled) { transform: translateY(-1px); border-color: #bfd4be; background: #f8fbf6; color: #365f40; }
+.learning-mode-option.is-selected { border-color: #528461; background: #edf5eb; color: #315f3d; box-shadow: inset 0 0 0 1px rgba(82, 132, 97, .08); }
+.learning-mode-option:focus-visible { outline: 3px solid rgba(57, 127, 78, .25); outline-offset: 2px; }
+.learning-mode-option:disabled { cursor: wait; opacity: .6; }
+.learning-mode-description { color: #78867b; font-size: 11px; line-height: 1.4; }
+@media (max-width: 430px) {
+  .learning-mode-options { gap: 5px; }
+  .learning-mode-option { min-height: 32px; padding-inline: 9px; font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .learning-mode-option { transition: none; }
+}

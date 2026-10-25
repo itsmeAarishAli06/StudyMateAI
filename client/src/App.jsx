@@ -38,6 +38,7 @@ function App() {
   const [activePage, setActivePage] = useState('home')
   const [items, setItems] = useState(() => authConfigured ? [] : loadSavedItems())
   const [chatMessages, setChatMessages] = useState([])
+  const [chatLearningMode, setChatLearningMode] = useState('tutor')
   const [selectedSummary, setSelectedSummary] = useState(null)
   const [selectedQuiz, setSelectedQuiz] = useState(null)
   const [toast, setToast] = useState('')
@@ -301,7 +302,7 @@ function App() {
 
         <main className="main-content" key={activePage}>
           {activePage === 'home' && <Dashboard savedItems={items} onNavigate={setActivePage} onOpenItem={openItem} />}
-          {activePage === 'chat' && <ChatPage messages={chatMessages} onMessagesChange={setChatMessages} onNavigate={setActivePage} aiMode={aiMode} accessToken={session?.access_token} />}
+          {activePage === 'chat' && <ChatPage messages={chatMessages} onMessagesChange={setChatMessages} onNavigate={setActivePage} aiMode={aiMode} accessToken={session?.access_token} learningMode={chatLearningMode} onLearningModeChange={setChatLearningMode} />}
           {activePage === 'summary' && <SummaryPage selectedSummary={selectedSummary} onSave={saveSummary} onToast={setToast} onReset={() => setSelectedSummary(null)} accessToken={session?.access_token} />}
           {activePage === 'quiz' && <QuizPage selectedQuiz={selectedQuiz} savedItems={items} onSave={saveQuiz} onReset={() => setSelectedQuiz(null)} onToast={setToast} accessToken={session?.access_token} />}
           {activePage === 'history' && <HistoryPage items={items} onOpenItem={openItem} onNavigate={setActivePage} />}

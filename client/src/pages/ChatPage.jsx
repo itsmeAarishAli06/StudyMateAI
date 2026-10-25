@@ -3,7 +3,14 @@ import Icon from '../components/Icon.jsx'
 import { promptSuggestions } from '../data/mockData.js'
 import { sendChatMessage } from '../lib/api.js'
 
-function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken }) {
+const learningModes = [
+  { id: 'tutor', label: 'Tutor', description: 'Clear answers with a balanced explanation.' },
+  { id: 'simple', label: 'Explain simply', description: 'Plain language, short steps, and a helpful example.' },
+  { id: 'hint', label: 'Give me a hint', description: 'One clue at a time, without giving away the answer.' },
+  { id: 'quiz', label: 'Quiz me', description: 'One question at a time, with feedback after you answer.' },
+]
+
+function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken, learningMode = 'tutor', onLearningModeChange = () => {} }) {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -29,7 +36,7 @@ function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken 
     onMessagesChange((current) => [...current, { id: crypto.randomUUID(), role: 'user', text, displayText: options.displayText }])
 
     try {
-      const answer = await sendChatMessage(text, options.history ?? messages, accessToken)
+      const answer = await sendChatMessage(text, options.history ?? messages, accessToken, options.mode ?? learningMode)
       onMessagesChange((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', text: answer }])
     } catch (requestError) {
       setError(requestError.message || 'Your tutor could not answer just now. Please try again.')
@@ -44,7 +51,7 @@ function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken 
       example: { displayText: 'Give me an example', prompt: 'Give one concrete, accurate example that helps me understand your previous answer. Briefly explain how the example connects to the idea.' },
     }
     const request = prompts[action]
-    if (request) sendQuestion(request.prompt, { displayText: request.displayText, history: messages.slice(0, messageIndex + 1) })
+    if (request) sendQuestion(request.prompt, { displayText: request.displayText, history: messages.slice(0, messageIndex + 1), mode: 'tutor' })
   }
 
   function resetChat() {
@@ -141,6 +148,25 @@ function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken 
             {error && <div className="inline-error" role="alert"><span>{error}</span><button type="button" onClick={() => sendQuestion(messages.at(-1)?.text || '')}>Try again</button></div>}
           </div>
           <form className="chat-composer" onSubmit={(event) => { event.preventDefault(); sendQuestion() }}>
+            <div className="learning-mode-picker">
+              <span className="learning-mode-label" id="learning-mode-label">Learning mode</span>
+              <div className="learning-mode-options" role="group" aria-labelledby="learning-mode-label">
+                {learningModes.map((mode) => (
+                  <button
+                    className={`learning-mode-option${learningMode === mode.id ? ' is-selected' : ''}`}
+                    key={mode.id}
+                    type="button"
+                    aria-pressed={learningMode === mode.id}
+                    title={mode.description}
+                    disabled={isLoading}
+                    onClick={() => onLearningModeChange(mode.id)}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+              <span className="learning-mode-description" aria-live="polite">{learningModes.find((mode) => mode.id === learningMode)?.description || learningModes[0].description}</span>
+            </div>
             <label className="sr-only" htmlFor="chat-input">Your question</label>
             <textarea id="chat-input" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendQuestion() } }} placeholder="Ask a question or paste a tricky concept..." rows="2" maxLength={1200} />
             {isListening && <div className="voice-listening-status" role="status"><span className="voice-pulse" /> Listening{voicePreview ? `: ${voicePreview}` : '…'}</div>}
