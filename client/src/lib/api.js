@@ -111,3 +111,19 @@ export async function createQuiz({ topic, notes, sourceType = 'topic', questionC
     notifyAiUsageRefresh()
   }
 }
+
+export async function createExamAttempt(exam, token) {
+  try {
+    return (await request('/api/exams', exam, token)).exam
+  } finally {
+    notifyAiUsageRefresh()
+  }
+}
+
+export function getExamAttempts(token) {
+  return request('/api/exams', undefined, token).then((result) => result.exams)
+}
+
+export function submitExamAttempt(id, answers, token) {
+  return request(`/api/exams/${encodeURIComponent(id)}/submit`, { answers }, token).then((result) => result.result)
+}

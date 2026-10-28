@@ -94,6 +94,27 @@ test('POST /api/quizzes returns requested questions and validates count', async 
   assert.equal((await invalid.json()).error.code, 'VALIDATION_ERROR')
 })
 
+test('POST /api/exams accepts only the configured short durations and difficulty levels', async () => {
+  const baseExam = {
+    title: 'Biology mock',
+    examDate: '2026-11-28',
+    topics: ['Cells'],
+    questionCount: 5,
+  }
+
+  const invalidDuration = await post('/api/exams', { ...baseExam, durationMinutes: 60 })
+  assert.equal(invalidDuration.status, 400)
+  assert.match((await invalidDuration.json()).error.message, /1, 3, 5, 10, 15, or 20 minutes/)
+
+  const invalidDifficulty = await post('/api/exams', { ...baseExam, durationMinutes: 1, difficulty: 'expert' })
+  assert.equal(invalidDifficulty.status, 400)
+  assert.match((await invalidDifficulty.json()).error.message, /easy, standard, or challenging/)
+
+  const validSettings = await post('/api/exams', { ...baseExam, durationMinutes: 1, difficulty: 'challenging' })
+  assert.equal(validSettings.status, 503)
+  assert.equal((await validSettings.json()).error.code, 'AI_NOT_CONFIGURED')
+})
+
 test('AI routes require a verified account when Supabase is configured', async () => {
   const oldUrl = process.env.SUPABASE_URL
   const oldKey = process.env.SUPABASE_ANON_KEY

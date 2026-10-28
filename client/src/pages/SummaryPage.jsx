@@ -219,6 +219,7 @@ function SummaryPage({ selectedSummary, onSave, onToast, onReset, accessToken })
               <div className="key-points-heading"><span className="point-line" /> KEY IDEAS</div>
               <ul className="key-points">{result.points.map((point, index) => <li key={`${point}-${index}`}><span className="point-number">0{index + 1}</span><span>{point}</span></li>)}</ul>
               <div className="takeaway-card"><span><Icon name="bolt" size={15} /> REMEMBER THIS</span><p>{result.takeaway}</p></div>
+              <p className="ai-accuracy-notice" role="note">AI-generated study material may contain errors. Check important facts against your course materials.</p>
               <div className="summary-audio-controls" aria-label="Summary audio controls">
                 <button className="button button-secondary" type="button" onClick={toggleReading} disabled={!speechAvailable} title={!speechAvailable ? 'Speech playback is not supported in this browser' : undefined}><Icon name={speechState === 'reading' ? 'pause' : 'play'} size={15} /> {speechState === 'reading' ? 'Pause' : speechState === 'paused' ? 'Resume' : 'Read aloud'}</button>
                 {speechState !== 'idle' && <button className="button button-secondary" type="button" onClick={stopReading}><Icon name="close" size={14} /> Stop</button>}

@@ -5,6 +5,7 @@ const footerNavigation = [
   { id: 'chat', label: 'AI tutor' },
   { id: 'summary', label: 'Summarize notes' },
   { id: 'quiz', label: 'Quiz maker' },
+  { id: 'exam', label: 'Exam preparation' },
   { id: 'planner', label: 'Study planner' },
   { id: 'history', label: 'Study history' },
 ]
@@ -60,6 +61,11 @@ function SiteFooter({ onNavigate, linkedinUrl = '', portfolioUrl = '', contactEm
             </nav>
           )}
         </div>
+
+        <section className="footer-accuracy-notice" aria-labelledby="footer-accuracy-heading">
+          <h2 id="footer-accuracy-heading">AI accuracy notice</h2>
+          <p>StudyMate AI uses artificial intelligence to generate educational content, quizzes, multiple-choice questions, and explanations. AI-generated content may occasionally contain errors or incorrect answers. Verify important information with textbooks, teachers, or other reliable educational resources. StudyMate AI supports learning and is not a substitute for verified educational materials.</p>
+        </section>
 
         <div className="site-footer-bottom">
           <span>© {new Date().getFullYear()} StudyMate AI</span>

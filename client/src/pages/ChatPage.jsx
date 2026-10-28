@@ -140,7 +140,7 @@ function ChatPage({ messages, onMessagesChange, onNavigate, aiMode, accessToken,
                 <div className="message-body">
                   <span className="message-author">{message.role === 'assistant' ? 'StudyMate' : 'You'}</span>
                   <p>{message.displayText || message.text}</p>
-                  {message.role === 'assistant' && <div className="message-study-actions" aria-label="More ways to understand this answer"><button type="button" onClick={() => askForHelp('simple', messageIndex)} disabled={isLoading}><Icon name="spark" size={13} /> Explain simply</button><button type="button" onClick={() => askForHelp('example', messageIndex)} disabled={isLoading}><Icon name="lightbulb" size={13} /> Give an example</button></div>}
+                  {message.role === 'assistant' && <><small className="ai-accuracy-inline">AI-generated response. Verify important facts with your course materials.</small><div className="message-study-actions" aria-label="More ways to understand this answer"><button type="button" onClick={() => askForHelp('simple', messageIndex)} disabled={isLoading}><Icon name="spark" size={13} /> Explain simply</button><button type="button" onClick={() => askForHelp('example', messageIndex)} disabled={isLoading}><Icon name="lightbulb" size={13} /> Give an example</button></div></>}
                 </div>
               </article>
             ))}

@@ -139,6 +139,13 @@ function Dashboard({ savedItems, onNavigate, onOpenItem }) {
           <span>Turn your available time and topics into a schedule you control.</span>
           <small>BUILD A STUDY PLAN <Icon name="chevron" size={13} /></small>
         </button>
+        <button className="feature-card feature-exam" type="button" onClick={() => onNavigate('exam')}>
+          <span className="feature-icon"><Icon name="clock" size={19} /></span>
+          <span className="feature-arrow"><Icon name="arrow" size={16} /></span>
+          <strong>Take a mock exam</strong>
+          <span>Practice your syllabus in a timed, mixed-topic test.</span>
+          <small>PREPARE FOR EXAMS <Icon name="chevron" size={13} /></small>
+        </button>
       </section>
 
       <section className="recent-section">

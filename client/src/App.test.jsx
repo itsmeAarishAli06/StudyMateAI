@@ -61,6 +61,7 @@ describe('StudyMate MVP screens', () => {
     expect(screen.getByRole('button', { name: /Summarize your notes/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Practice with a quiz/ })).toBeInTheDocument()
     expect(screen.getByText('Your study history will show up here')).toBeInTheDocument()
+    expect(screen.getByText(/StudyMate AI uses artificial intelligence to generate educational content/)).toBeInTheDocument()
   })
 
   it('shows the tutor empty state, loading response, and recoverable error', async () => {
@@ -75,6 +76,7 @@ describe('StudyMate MVP screens', () => {
     expect(screen.getByText('StudyMate is thinking')).toBeInTheDocument()
     resolveChat('Mitochondria help cells make ATP from food.')
     expect(await screen.findByText('Mitochondria help cells make ATP from food.')).toBeInTheDocument()
+    expect(screen.getByText(/AI-generated response. Verify important facts/)).toBeInTheDocument()
 
     sendChatMessage.mockRejectedValueOnce(new Error('Gemini is temporarily unavailable.'))
     await user.type(screen.getByLabelText('Your question'), 'Explain mitochondria')
@@ -101,6 +103,7 @@ describe('StudyMate MVP screens', () => {
     expect(screen.getByText('Finding the big picture...')).toBeInTheDocument()
     resolveSummary({ title: 'Respiration revision', sourceText: 'sample notes', content: summaryResult })
     expect(await screen.findByText(summaryResult.lead)).toBeInTheDocument()
+    expect(screen.getByText(/AI-generated study material may contain errors/)).toBeInTheDocument()
     expect(createSummary).toHaveBeenCalledWith(expect.stringContaining('Cellular respiration'), 'Respiration revision', undefined)
     await user.click(screen.getByRole('button', { name: /Save summary/ }))
     expect(await screen.findByText('Summary saved to your study history')).toBeInTheDocument()
@@ -149,6 +152,7 @@ describe('StudyMate MVP screens', () => {
     await user.type(screen.getByLabelText('Paste study material'), 'Photosynthesis uses light energy to make glucose.')
     await user.click(screen.getByRole('button', { name: /Build my quiz/ }))
     expect(await screen.findByText('Which pigment captures light?')).toBeInTheDocument()
+    expect(screen.getByText(/AI-generated questions, answers, and explanations may occasionally contain errors/)).toBeInTheDocument()
     expect(createQuiz).toHaveBeenLastCalledWith({ notes: 'Photosynthesis uses light energy to make glucose.', sourceType: 'notes', questionCount: 5, difficulty: 'challenging' }, undefined)
   })
 

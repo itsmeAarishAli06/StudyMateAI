@@ -10,7 +10,8 @@ import quizzesRouter from './routes/quizzes.js'
 import studyItemsRouter from './routes/studyItems.js'
 import studyPlansRouter from './routes/studyPlans.js'
 import aiUsageRouter from './routes/aiUsage.js'
-import { createAiRateLimiterFromEnvironment } from './middleware/rateLimit.js'
+import examsRouter from './routes/exams.js'
+import { getSharedAiRateLimiter } from './middleware/rateLimit.js'
 import { requireAiAccount } from './middleware/requireSupabaseUser.js'
 
 const serverDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -18,7 +19,7 @@ dotenv.config({ path: resolve(serverDirectory, '.env') })
 
 const app = express()
 app.disable('x-powered-by')
-const aiRateLimit = createAiRateLimiterFromEnvironment()
+const aiRateLimit = getSharedAiRateLimiter()
 const trustProxySetting = process.env.TRUST_PROXY_HOPS || '0'
 const trustProxyHops = /^\d+$/.test(trustProxySetting) ? Number(trustProxySetting) : 0
 app.set('trust proxy', Number.isSafeInteger(trustProxyHops) ? trustProxyHops : 0)
@@ -53,6 +54,7 @@ app.get('/', (_request, response) => {
 
 app.use('/api/health', healthRouter)
 app.use('/api/ai-usage', aiUsageRouter)
+app.use('/api/exams', examsRouter)
 app.use('/api/chat', aiRateLimit, requireAiAccount, chatRouter)
 app.use('/api/summaries', aiRateLimit, requireAiAccount, summariesRouter)
 app.use('/api/quizzes', aiRateLimit, requireAiAccount, quizzesRouter)

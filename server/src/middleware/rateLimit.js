@@ -48,3 +48,9 @@ export function createAiRateLimiterFromEnvironment() {
   const configuredLimit = Number.parseInt(process.env.AI_RATE_LIMIT_PER_MINUTE || '20', 10)
   return createRateLimiter({ limit: Number.isInteger(configuredLimit) && configuredLimit > 0 ? configuredLimit : 20 })
 }
+
+let sharedAiRateLimiter
+export function getSharedAiRateLimiter() {
+  if (!sharedAiRateLimiter) sharedAiRateLimiter = createAiRateLimiterFromEnvironment()
+  return sharedAiRateLimiter
+}

@@ -9,8 +9,8 @@ function quizAccuracy(score) {
   return match && Number(match[2]) > 0 ? Number(match[1]) / Number(match[2]) : null
 }
 
-function QuizPage({ selectedQuiz, savedItems = [], onSave, onReset, onToast, accessToken }) {
-  const [topic, setTopic] = useState(selectedQuiz?.title || '')
+function QuizPage({ selectedQuiz, topicSeed, onTopicSeedConsumed, savedItems = [], onSave, onReset, onToast, accessToken }) {
+  const [topic, setTopic] = useState(selectedQuiz?.title || topicSeed?.topic || '')
   const [sourceMode, setSourceMode] = useState('topic')
   const [studyNotes, setStudyNotes] = useState('')
   const [questionCount, setQuestionCount] = useState(selectedQuiz?.questions?.length || 5)
@@ -62,6 +62,19 @@ function QuizPage({ selectedQuiz, savedItems = [], onSave, onReset, onToast, acc
       setError('')
     }
   }, [selectedQuiz?.id])
+
+  useEffect(() => {
+    if (!topicSeed?.topic) return
+    setTopic(topicSeed.topic)
+    setSourceMode('topic')
+    setQuiz(null)
+    setAnswers({})
+    setSubmitted(false)
+    setIsSaved(false)
+    setStudyMode('quiz')
+    setError('')
+    onTopicSeedConsumed?.()
+  }, [topicSeed?.id])
 
   const score = useMemo(() => quiz ? quiz.questions.reduce((total, item, index) => total + (answers[index] === item.answer ? 1 : 0), 0) : 0, [answers, quiz])
 
@@ -244,6 +257,7 @@ function QuizPage({ selectedQuiz, savedItems = [], onSave, onReset, onToast, acc
                   )
                 })}
               </div>
+              <p className="ai-accuracy-notice" role="note">AI-generated questions, answers, and explanations may occasionally contain errors. Verify important information with reliable educational sources.</p>
               {error && <div className="form-error" role="alert"><Icon name="close" size={15} /> {error}</div>}
               {!submitted ? <button className="button button-primary check-answers-button" type="button" onClick={submitAnswers}>Check my answers <Icon name="arrow" size={15} /></button> : <div className="quiz-completion-actions"><button className="button button-secondary" type="button" onClick={startOver}><Icon name="refresh" size={15} /> Try another quiz</button><button className="button button-primary" type="button" onClick={saveQuiz} disabled={isSaved || isSaving}><Icon name={isSaved ? 'check' : 'save'} size={15} /> {isSaving ? 'Saving…' : isSaved ? 'Saved to history' : 'Save this quiz'}</button></div>}
               </>}

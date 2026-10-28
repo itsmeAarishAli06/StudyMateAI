@@ -8,6 +8,7 @@ import { authConfigured, getSession, signIn, signOut, signUp } from './lib/auth.
 import { getCurrentStreak } from './lib/progress.js'
 import ChatPage from './pages/ChatPage.jsx'
 import Dashboard from './pages/Dashboard.jsx'
+import ExamPreparationPage from './pages/ExamPreparationPage.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
 import QuizPage from './pages/QuizPage.jsx'
 import SummaryPage from './pages/SummaryPage.jsx'
@@ -19,6 +20,7 @@ const pageNames = {
   chat: 'AI tutor',
   summary: 'Summarizer',
   quiz: 'Quiz maker',
+  exam: 'Exam preparation',
   history: 'Study history',
   planner: 'Study planner',
 }
@@ -42,6 +44,7 @@ function App() {
   const [chatLearningMode, setChatLearningMode] = useState('tutor')
   const [selectedSummary, setSelectedSummary] = useState(null)
   const [selectedQuiz, setSelectedQuiz] = useState(null)
+  const [quizTopicSeed, setQuizTopicSeed] = useState(null)
   const [toast, setToast] = useState('')
   const [profileOpen, setProfileOpen] = useState(false)
   const profileMenuRef = useRef(null)
@@ -154,6 +157,7 @@ function App() {
   }, [profileOpen])
 
   function openItem(item) {
+    setQuizTopicSeed(null)
     if (item.type === 'quiz') {
       setSelectedQuiz(item)
       setActivePage('quiz')
@@ -161,6 +165,12 @@ function App() {
     }
     setSelectedSummary(item)
     setActivePage('summary')
+  }
+
+  function practiceExamWeakTopic(topic) {
+    setSelectedQuiz(null)
+    setQuizTopicSeed({ topic, id: crypto.randomUUID() })
+    setActivePage('quiz')
   }
 
   async function saveSummary(summary) {
@@ -322,7 +332,8 @@ function App() {
           {activePage === 'home' && <Dashboard savedItems={items} onNavigate={setActivePage} onOpenItem={openItem} />}
           {activePage === 'chat' && <ChatPage messages={chatMessages} onMessagesChange={setChatMessages} onNavigate={setActivePage} aiMode={aiMode} accessToken={session?.access_token} learningMode={chatLearningMode} onLearningModeChange={setChatLearningMode} />}
           {activePage === 'summary' && <SummaryPage selectedSummary={selectedSummary} onSave={saveSummary} onToast={setToast} onReset={() => setSelectedSummary(null)} accessToken={session?.access_token} />}
-          {activePage === 'quiz' && <QuizPage selectedQuiz={selectedQuiz} savedItems={items} onSave={saveQuiz} onReset={() => setSelectedQuiz(null)} onToast={setToast} accessToken={session?.access_token} />}
+          {activePage === 'quiz' && <QuizPage selectedQuiz={selectedQuiz} topicSeed={quizTopicSeed} onTopicSeedConsumed={() => setQuizTopicSeed(null)} savedItems={items} onSave={saveQuiz} onReset={() => { setSelectedQuiz(null); setQuizTopicSeed(null) }} onToast={setToast} accessToken={session?.access_token} />}
+          {activePage === 'exam' && <ExamPreparationPage accessToken={session?.access_token} onNavigate={setActivePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />}
           {activePage === 'history' && <HistoryPage items={items} onOpenItem={openItem} onNavigate={setActivePage} />}
           {activePage === 'planner' && <StudyPlanPage accessToken={session?.access_token} onToast={setToast} />}
         </main>

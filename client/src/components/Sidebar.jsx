@@ -6,6 +6,7 @@ export const navigationItems = [
   { id: 'chat', label: 'AI tutor', icon: 'chat' },
   { id: 'summary', label: 'Summarizer', icon: 'notes' },
   { id: 'quiz', label: 'Quiz maker', icon: 'quiz' },
+  { id: 'exam', label: 'Exam preparation', icon: 'clock' },
   { id: 'planner', label: 'Study planner', icon: 'calendar' },
   { id: 'history', label: 'Study history', icon: 'history' },
 ]
@@ -15,6 +16,7 @@ const mobileLabels = {
   chat: 'Tutor',
   summary: 'Notes',
   quiz: 'Quiz',
+  exam: 'Exam',
   planner: 'Plan',
   history: 'History',
 }
