@@ -462,6 +462,7 @@ export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: ini
             </>}
             {(error || localError || message) && <p className={error || localError ? 'form-error' : 'auth-success'} role={error || localError ? 'alert' : 'status'}>{error || localError || message}</p>}
             <button className="button button-primary full-button auth-submit" type="submit" disabled={loading}>{loading ? <><span className="button-spinner" /> Please wait...</> : <>{isSignIn ? 'Sign in' : mode === 'signup' ? 'Create account' : isForgot ? 'Send reset link' : 'Update password'} <Icon name="arrow" size={16} /></>}</button>
+            {passwordChange && <button className="auth-cancel-change" type="button" onClick={onRecoveryComplete}><Icon name="arrow" size={15} />Back to StudyMate</button>}
           </form>}
           <div className="auth-divider"><span /> <small>YOUR PROGRESS, KEPT SAFE</small> <span /></div>
           <p className="auth-privacy"><Icon name="check" size={14} /> Your study history stays private to your account.</p>

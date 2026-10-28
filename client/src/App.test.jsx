@@ -282,4 +282,5 @@ describe('StudyMate password recovery screens', () => {
     await user.click(screen.getByRole('button', { name: 'Continue to StudyMate' }))
     expect(onRecoveryComplete).toHaveBeenCalledOnce()
   })
+
 })
