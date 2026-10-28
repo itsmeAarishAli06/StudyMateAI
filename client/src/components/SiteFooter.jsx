@@ -56,7 +56,7 @@ function SiteFooter({ onNavigate, linkedinUrl = '', portfolioUrl = '', contactEm
             <nav className="footer-connect" aria-label="Connect with the creator">
               <h2>Connect</h2>
               {linkedin && <a href={linkedin} target="_blank" rel="noopener noreferrer"><Icon name="linkedin" size={16} />LinkedIn<Icon name="external" size={13} /></a>}
-              {portfolio && <a href={portfolio} target="_blank" rel="noopener noreferrer"><Icon name="briefcase" size={16} />Portfolio<Icon name="external" size={13} /></a>}
+              {portfolio && <a className="footer-portfolio-link" href={portfolio} target="_blank" rel="noopener noreferrer" aria-label="Visit my personal portfolio (opens in a new tab)"><Icon name="briefcase" size={16} />My portfolio<Icon name="external" size={13} /></a>}
               {email && <a className="footer-email-link" href={`mailto:${email}`}><Icon name="mail" size={16} /><span>{email}</span></a>}
             </nav>
           )}

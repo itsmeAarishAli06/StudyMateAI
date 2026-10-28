@@ -62,6 +62,7 @@ describe('StudyMate MVP screens', () => {
     expect(screen.getByRole('button', { name: /Practice with a quiz/ })).toBeInTheDocument()
     expect(screen.getByText('Your study history will show up here')).toBeInTheDocument()
     expect(screen.getByText(/StudyMate AI uses artificial intelligence to generate educational content/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Visit my personal portfolio (opens in a new tab)' })).toHaveAttribute('href', 'https://aarishali.infinityfreeapp.com/')
   })
 
   it('shows the tutor empty state, loading response, and recoverable error', async () => {
@@ -201,6 +202,25 @@ describe('StudyMate password recovery screens', () => {
     expect(password).toHaveAttribute('type', 'password')
   })
 
+  it('shows live password strength feedback on registration, but not sign-in', async () => {
+    const user = userEvent.setup()
+    render(<AuthScreen onSubmit={vi.fn()} />)
+
+    expect(screen.queryByRole('progressbar', { name: 'Password strength' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Create an account' }))
+    expect(screen.getByRole('progressbar', { name: 'Password strength' })).toHaveAttribute('aria-valuetext', 'Not set')
+
+    await user.type(screen.getByLabelText('Password'), 'abc')
+    expect(screen.getByText('Weak')).toBeInTheDocument()
+    expect(screen.getByText('Add a few more characters; aim for at least 8.')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Password strength' })).toHaveAttribute('aria-valuetext', 'Weak')
+
+    await user.clear(screen.getByLabelText('Password'))
+    await user.type(screen.getByLabelText('Password'), 'Learning123!')
+    expect(screen.getByText('Strong')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Password strength' })).toHaveAttribute('aria-valuenow', '4')
+  })
+
   it('lets a user request a reset link without revealing whether the email is registered', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue('If an account exists for this email, a password reset link will be sent shortly.')
@@ -231,6 +251,7 @@ describe('StudyMate password recovery screens', () => {
     await user.click(screen.getByRole('button', { name: 'Hide confirmation password' }))
 
     await user.type(newPassword, 'new-study-password')
+    expect(screen.getByRole('progressbar', { name: 'Password strength' })).toHaveAttribute('aria-valuetext', 'Good')
     await user.type(confirmation, 'different-password')
     await user.click(screen.getByRole('button', { name: 'Update password' }))
     expect(onSubmit).not.toHaveBeenCalled()
@@ -241,6 +262,23 @@ describe('StudyMate password recovery screens', () => {
     await user.click(screen.getByRole('button', { name: 'Update password' }))
     expect(onSubmit).toHaveBeenCalledWith('reset', 'learner@example.com', 'new-study-password')
     expect(await screen.findByText('Password updated')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue to StudyMate' }))
+    expect(onRecoveryComplete).toHaveBeenCalledOnce()
+  })
+
+  it('offers an in-session password change with a clear completion state', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue('Your password has been updated.')
+    const onRecoveryComplete = vi.fn()
+    render(<AuthScreen initialMode="reset" passwordChange email="learner@example.com" onSubmit={onSubmit} onRecoveryComplete={onRecoveryComplete} />)
+
+    expect(screen.getByRole('heading', { name: 'Change your password.' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('New password'), 'Updated-study-password1!')
+    await user.type(screen.getByLabelText('Confirm new password'), 'Updated-study-password1!')
+    await user.click(screen.getByRole('button', { name: 'Update password' }))
+
+    expect(onSubmit).toHaveBeenCalledWith('reset', 'learner@example.com', 'Updated-study-password1!')
+    expect(await screen.findByText('Your StudyMate password has changed. Your current session is still active.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Continue to StudyMate' }))
     expect(onRecoveryComplete).toHaveBeenCalledOnce()
   })

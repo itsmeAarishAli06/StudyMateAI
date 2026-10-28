@@ -715,6 +715,25 @@ body { background: #f3f7f2; }
 @keyframes auth-recovery-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .auth-forgot-link, .auth-recovery-complete { animation: none; transition: none; transform: none; } }
 
+/* Live password strength feedback for account creation and password recovery. */
+.auth-password-strength { display: grid; gap: 7px; margin: -2px 0 3px; }
+.auth-password-strength-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #627166; font-size: 11px; }
+.auth-password-strength-heading strong { color: #69776d; font-size: 11px; font-weight: 750; }
+.auth-password-strength-meter { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.auth-password-strength-meter span { height: 5px; overflow: hidden; border-radius: 99px; background: #e9eee8; transition: background-color .2s ease, transform .2s ease; }
+.auth-password-strength-meter span.is-filled { background: var(--strength-color, #8b9a8e); }
+.auth-password-strength > small { min-height: 16px; color: #657369; font-size: 11px; line-height: 1.45; }
+.auth-password-strength.strength-weak { --strength-color: #cf5c54; }
+.auth-password-strength.strength-fair { --strength-color: #d09a32; }
+.auth-password-strength.strength-good { --strength-color: #548e5b; }
+.auth-password-strength.strength-strong { --strength-color: #26724c; }
+.auth-password-strength.strength-empty { --strength-color: #9aa69b; }
+.auth-password-strength.strength-weak .auth-password-strength-heading strong { color: #ae4038; }
+.auth-password-strength.strength-fair .auth-password-strength-heading strong { color: #9b6b12; }
+.auth-password-strength.strength-good .auth-password-strength-heading strong { color: #3f7548; }
+.auth-password-strength.strength-strong .auth-password-strength-heading strong { color: #21633f; }
+@media (prefers-reduced-motion: reduce) { .auth-password-strength-meter span { transition: none; } }
+
 @media (max-width: 760px) {
   .auth-shell { min-height: 100svh; padding: 20px; }
   .auth-frame { width: min(100%, 500px); min-height: auto; display: block; border-radius: 23px; }
@@ -1124,6 +1143,12 @@ body { background: #f3f7f2; }
 .ai-usage-foot small { color: #617367; font-size: 9px; }
 .ai-usage-foot button { padding: 2px 4px; border: 0; background: transparent; color: #276843; font-size: 10px; font-weight: 700; text-decoration: underline; cursor: pointer; }
 .profile-menu-signout { width: 100%; min-height: 42px; display: flex; align-items: center; gap: 9px; padding: 0 11px; border: 1px solid #f0dfdb; border-radius: 10px; background: #fff8f6; color: #8f463b; font-size: 13px; font-weight: 650; text-align: left; cursor: pointer; transition: background .16s ease, border-color .16s ease; }
+.profile-menu-actions { display: grid; gap: 8px; }
+.profile-menu-change-password { width: 100%; min-height: 42px; display: flex; align-items: center; gap: 9px; padding: 0 11px; border: 1px solid #e1eadf; border-radius: 10px; background: linear-gradient(135deg, #f7faf5, #eef5ec); color: #365b3e; font-size: 13px; font-weight: 650; text-align: left; cursor: pointer; transition: background .16s ease, border-color .16s ease, transform .16s ease; }
+.profile-menu-change-password:hover { transform: translateY(-1px); border-color: #bfd4bc; background: #edf5eb; }
+.profile-menu-change-password:focus-visible { outline: 3px solid rgba(57, 127, 78, .32); outline-offset: 3px; }
+.profile-menu-change-password .profile-menu-action-arrow { margin-left: auto; color: #7c9780; transition: transform .16s ease; }
+.profile-menu-change-password:hover .profile-menu-action-arrow { transform: translateX(2px); }
 .profile-menu-signout:hover { border-color: #e6c5bc; background: #fff0ec; }
 .profile-menu-note { padding: 10px 11px; border-top: 1px solid #edf1ec; color: #596c5f; font-size: 11px; line-height: 1.5; }
 @keyframes menu-enter { from { opacity: 0; transform: translateY(-4px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -1224,6 +1249,8 @@ body { background: #f3f7f2; }
 .footer-navigation button:hover svg { opacity: 1; transform: translateX(0); }
 .footer-connect a > svg:first-child { color: #b8d4aa; }
 .footer-connect a > svg:last-child { margin-left: 3px; color: #9fc29a; opacity: .68; }
+.footer-connect .footer-portfolio-link > svg:first-child { color: #d4e9bd; }
+.footer-connect .footer-portfolio-link { font-weight: 650; }
 .footer-connect .footer-email-link { max-width: 100%; min-width: 0; overflow-wrap: anywhere; }
 .footer-connect .footer-email-link > svg:first-child { flex: 0 0 auto; margin-left: 0; color: #b8d4aa; opacity: 1; }
 .footer-connect .footer-email-link > span { min-width: 0; overflow-wrap: anywhere; }

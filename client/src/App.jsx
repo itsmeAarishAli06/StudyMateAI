@@ -5,6 +5,7 @@ import SiteFooter from './components/SiteFooter.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import { createStudyItem, getAiDailyUsage, getHealth, getStudyItems } from './lib/api.js'
 import { authConfigured, consumePasswordRecovery, getSession, requestPasswordReset, signIn, signOut, signUp, updatePassword } from './lib/auth.js'
+import { getPasswordStrength } from './lib/passwordStrength.js'
 import { getCurrentStreak } from './lib/progress.js'
 import ChatPage from './pages/ChatPage.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -267,7 +268,7 @@ function App() {
   }
 
   if (authLoading) return <AuthLoading />
-  if (authConfigured && authFlow === 'recovery' && session) return <AuthScreen initialMode="reset" email={session.user.email || ''} error={authError} onSubmit={submitAuth} onRecoveryComplete={() => { setAuthError(''); setAuthFlow('') }} />
+  if (authConfigured && ['recovery', 'password-change'].includes(authFlow) && session) return <AuthScreen initialMode="reset" passwordChange={authFlow === 'password-change'} email={session.user.email || ''} error={authError} onSubmit={submitAuth} onRecoveryComplete={() => { setAuthError(''); setAuthFlow('') }} />
   if (authConfigured && !session) return <AuthScreen error={authError} onSubmit={submitAuth} />
 
   return (
@@ -338,7 +339,10 @@ function App() {
                     </section>
                   )}
                   {authConfigured
-                    ? <button className="profile-menu-signout" type="button" onClick={handleSignOut}><Icon name="logout" size={16} />Sign out</button>
+                    ? <div className="profile-menu-actions">
+                      <button className="profile-menu-change-password" type="button" onClick={() => { setProfileOpen(false); setAuthError(''); setAuthFlow('password-change') }}><Icon name="history" size={16} />Change password<Icon className="profile-menu-action-arrow" name="arrow" size={14} /></button>
+                      <button className="profile-menu-signout" type="button" onClick={handleSignOut}><Icon name="logout" size={16} />Sign out</button>
+                    </div>
                     : <div className="profile-menu-note">Sign in becomes available when account authentication is configured.</div>}
                 </div>
               )}
@@ -376,7 +380,7 @@ function AuthLoading() {
   return <main className="auth-shell"><div className="auth-loading-card" role="status"><span className="auth-brand-mark"><BrandMark className="brand-mark-graphic" /></span><span className="button-spinner" /><h1>Loading your study space</h1><p>Getting everything ready for you.</p></div></main>
 }
 
-export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: initialEmail = '', onRecoveryComplete }) {
+export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: initialEmail = '', onRecoveryComplete, passwordChange = false }) {
   const [mode, setMode] = useState(initialMode)
   const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
@@ -390,6 +394,8 @@ export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: ini
   const isSignIn = mode === 'signin'
   const isForgot = mode === 'forgot'
   const isReset = mode === 'reset'
+  const showPasswordStrength = mode === 'signup' || isReset
+  const passwordStrength = getPasswordStrength(password)
 
   const heading = isSignIn
     ? ['WELCOME BACK', 'Sign in to your space.', 'Pick up right where your learning left off.']
@@ -397,7 +403,9 @@ export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: ini
       ? ['A FRESH START', 'Create your account.', 'Set up your private study space in a moment.']
       : isForgot
         ? ['ACCOUNT RECOVERY', 'Reset your password.', 'We’ll email you a secure link to get back into your study space.']
-        : ['SECURE YOUR ACCOUNT', 'Choose a new password.', 'Create a fresh password for your StudyMate account.']
+        : passwordChange
+          ? ['ACCOUNT SETTINGS', 'Change your password.', 'Choose a new password to keep your StudyMate account secure.']
+          : ['SECURE YOUR ACCOUNT', 'Choose a new password.', 'Create a fresh password for your StudyMate account.']
 
   async function submit(event) {
     event.preventDefault()
@@ -436,12 +444,19 @@ export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: ini
         <section className="auth-card">
           <div className="auth-mobile-brand"><span className="auth-brand-mark"><BrandMark className="brand-mark-graphic" /></span><span>StudyMate<span>AI</span></span></div>
           <div className="auth-form-heading"><span className="auth-form-kicker">{heading[0]}</span><h1>{heading[1]}</h1><p>{heading[2]}</p></div>
-          {passwordUpdated ? <div className="auth-recovery-complete" role="status"><span className="auth-recovery-check"><Icon name="check" size={19} /></span><strong>Password updated</strong><p>Your new password is ready. Sign in with it the next time you return.</p><button className="button button-primary full-button auth-submit" type="button" onClick={onRecoveryComplete}>Continue to StudyMate <Icon name="arrow" size={16} /></button></div> : <form onSubmit={submit}>
+          {passwordUpdated ? <div className="auth-recovery-complete" role="status"><span className="auth-recovery-check"><Icon name="check" size={19} /></span><strong>Password updated</strong><p>{passwordChange ? 'Your StudyMate password has changed. Your current session is still active.' : 'Your new password is ready. Sign in with it the next time you return.'}</p><button className="button button-primary full-button auth-submit" type="button" onClick={onRecoveryComplete}>Continue to StudyMate <Icon name="arrow" size={16} /></button></div> : <form onSubmit={submit}>
             <label className="field-label" htmlFor="auth-email">Email address</label>
             <div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="mail" size={16} /></span><input className="text-input" id="auth-email" type="email" autoComplete="email" placeholder="you@example.com" required value={email} onChange={(event) => setEmail(event.target.value)} disabled={isReset} /></div>
             {!isForgot && <>
               <label className="field-label" htmlFor="auth-password">{isReset ? 'New password' : 'Password'}</label>
               <div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="history" size={16} /></span><input className="text-input" id="auth-password" type={passwordVisible ? 'text' : 'password'} autoComplete={isSignIn ? 'current-password' : 'new-password'} placeholder={isReset ? 'Choose at least 6 characters' : 'At least 6 characters'} minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} /><button className="auth-password-toggle" type="button" aria-label={passwordVisible ? 'Hide password' : 'Show password'} aria-pressed={passwordVisible} onClick={() => setPasswordVisible((visible) => !visible)}><Icon name={passwordVisible ? 'eyeOff' : 'eye'} size={18} /></button></div>
+              {showPasswordStrength && <div className={`auth-password-strength strength-${passwordStrength.level}`}>
+                <div className="auth-password-strength-heading"><span>Password strength</span><strong aria-live="polite">{passwordStrength.label}</strong></div>
+                <div className="auth-password-strength-meter" role="progressbar" aria-label="Password strength" aria-valuemin="0" aria-valuemax="4" aria-valuenow={passwordStrength.barLevel} aria-valuetext={passwordStrength.label}>
+                  {[1, 2, 3, 4].map((segment) => <span key={segment} className={segment <= passwordStrength.barLevel ? 'is-filled' : ''} />)}
+                </div>
+                <small aria-live="polite">{passwordStrength.hint}</small>
+              </div>}
               {isReset && <><label className="field-label" htmlFor="auth-password-confirm">Confirm new password</label><div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="history" size={16} /></span><input className="text-input" id="auth-password-confirm" type={confirmationVisible ? 'text' : 'password'} autoComplete="new-password" placeholder="Enter the new password again" minLength={6} required value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} /><button className="auth-password-toggle" type="button" aria-label={confirmationVisible ? 'Hide confirmation password' : 'Show confirmation password'} aria-pressed={confirmationVisible} onClick={() => setConfirmationVisible((visible) => !visible)}><Icon name={confirmationVisible ? 'eyeOff' : 'eye'} size={18} /></button></div>{passwordConfirmation && passwordConfirmation !== password && <small className="auth-password-match" role="alert">Passwords do not match.</small>}</>}
               {isSignIn && <button className="auth-forgot-link" type="button" onClick={() => { setMode('forgot'); setMessage('') }}>Forgot password?</button>}
             </>}

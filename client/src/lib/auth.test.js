@@ -71,6 +71,22 @@ describe('Supabase auth client', () => {
     }))
   })
 
+  it('changes a signed-in user password using their current access token', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://study.example.supabase.co')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'public-test-key')
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
+    vi.stubGlobal('fetch', fetch)
+    const { updatePassword } = await import('./auth.js')
+
+    await updatePassword('new-password-123!', 'current-user-access-token')
+
+    expect(fetch).toHaveBeenCalledWith('https://study.example.supabase.co/auth/v1/user', expect.objectContaining({
+      method: 'PUT',
+      headers: { apikey: 'public-test-key', 'content-type': 'application/json', authorization: 'Bearer current-user-access-token' },
+      body: JSON.stringify({ password: 'new-password-123!' }),
+    }))
+  })
+
   it('verifies the recovery token with Supabase, stores the recovery session, and removes tokens from the URL', async () => {
     vi.stubEnv('VITE_SUPABASE_URL', 'https://study.example.supabase.co')
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'public-test-key')
