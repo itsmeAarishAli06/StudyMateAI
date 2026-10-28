@@ -1,3 +1,9 @@
+My Plan for future.
+
+Buy a domain 
+SMTP 
+Admin Panel
+
 # StudyMate AI
 
 StudyMate AI is a React + Vite study workspace with an Express API for AI chat, note summaries, quizzes, and personal study plans. Signed-in users can save summaries, quiz results, and editable exam schedules to a private Supabase Postgres history.
@@ -13,11 +19,11 @@ StudyMate AI is a React + Vite study workspace with an Express API for AI chat, 
 1. In the Supabase SQL Editor, run [`supabase/migrations/20261022000000_study_items.sql`](supabase/migrations/20261022000000_study_items.sql), [`supabase/migrations/20261024000000_study_plans.sql`](supabase/migrations/20261024000000_study_plans.sql), [`supabase/migrations/20261024120000_ai_daily_quotas.sql`](supabase/migrations/20261024120000_ai_daily_quotas.sql), [`supabase/migrations/20261025100000_ai_daily_limit_30.sql`](supabase/migrations/20261025100000_ai_daily_limit_30.sql), [`supabase/migrations/20261028120000_exam_preparation.sql`](supabase/migrations/20261028120000_exam_preparation.sql), [`supabase/migrations/20261028130000_exam_question_limit_15.sql`](supabase/migrations/20261028130000_exam_question_limit_15.sql), and [`supabase/migrations/20261028140000_exam_settings.sql`](supabase/migrations/20261028140000_exam_settings.sql), in that order. The migrations enable row-level security and restrict account data to its owner.
 2. Copy `server/.env.example` to `server/.env`. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the Supabase project API settings. Keep Gemini credentials in this server-only file too.
 3. Copy `client/.env.example` to `client/.env`. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to the same project URL and anon/publishable key. `VITE_API_BASE_URL` should point to the Express API.
-4. In Supabase Auth settings, enable Email auth and set the local redirect/site URL as needed. If email confirmations are enabled, a new account must confirm its email before signing in.
+4. In Supabase Auth settings, enable Email auth. Set the Site URL to the frontend origin and add `https://your-frontend.onrender.com/**` and `http://localhost:5173/**` to the allowed Redirect URLs. Password recovery redirects to `/?flow=recovery`. If email confirmations are enabled, a new account must confirm its email before signing in.
 
 AI generation requires a verified account in production and is capped at 30 requests per account per UTC day across chat, summaries, quizzes, and mock exam generation. The database atomically enforces this cap, so concurrent requests and app restarts cannot reset or overrun an account's allowance. Each mock exam generation counts once, whether it creates 5 or 15 questions. Apply the quota migrations before deploying this feature; if Supabase usage checks fail, AI generation fails closed. Set `NODE_ENV=production` in the deployed backend environment so missing Supabase quota configuration cannot disable enforcement. The signed-in profile dropdown shows requests used and remaining. The API also limits a client to 20 combined AI requests per minute by default; adjust `AI_RATE_LIMIT_PER_MINUTE` for the deployment. Set `CORS_ORIGINS` to the exact frontend origin(s). If the API runs behind a trusted reverse proxy, set `TRUST_PROXY_HOPS` to its exact hop count so client IP rate limits use the real address; leave it at `0` otherwise.
 
-The anon/publishable key is intended for browser use; database policies enforce the data boundary. Never use a Supabase service-role key in the client or in a `VITE_*` variable. The Express API validates each bearer token with Supabase Auth and calls PostgREST with that same user token, so database RLS also applies to backend requests.
+The anon/publishable key is intended for browser use; database policies enforce the data boundary. Never use a Supabase service-role key in the client or in a `VITE_*` variable. The Express API validates each bearer token with Supabase Auth and calls PostgREST with that same user token, so database RLS also applies to backend requests. Sign-in includes a password-recovery flow; Supabase sends the reset link, the app verifies the recovery session with Auth, and the user chooses a new password in StudyMate. Configure an SMTP provider in Supabase Auth for reliable delivery to users outside your project team.
 
 ## Run locally
 

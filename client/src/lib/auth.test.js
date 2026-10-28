@@ -55,4 +55,39 @@ describe('Supabase auth client', () => {
     await expect(getSession()).resolves.toBeNull()
     expect(window.localStorage.getItem('studymate.supabase.session')).toBeNull()
   })
+
+  it('requests password reset through Supabase Auth with the configured redirect URL', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://study.example.supabase.co')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'public-test-key')
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
+    vi.stubGlobal('fetch', fetch)
+    const { requestPasswordReset } = await import('./auth.js')
+
+    await requestPasswordReset('learner@example.com', 'https://studymate.onrender.com/?flow=recovery')
+    expect(fetch).toHaveBeenCalledWith('https://study.example.supabase.co/auth/v1/recover?redirect_to=https%3A%2F%2Fstudymate.onrender.com%2F%3Fflow%3Drecovery', expect.objectContaining({
+      method: 'POST',
+      headers: { apikey: 'public-test-key', 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'learner@example.com' }),
+    }))
+  })
+
+  it('verifies the recovery token with Supabase, stores the recovery session, and removes tokens from the URL', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://study.example.supabase.co')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'public-test-key')
+    window.history.replaceState({}, '', '/?flow=recovery#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&type=recovery')
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'user-123', email: 'learner@example.com' }) })
+    vi.stubGlobal('fetch', fetch)
+    const { consumePasswordRecovery } = await import('./auth.js')
+
+    await expect(consumePasswordRecovery()).resolves.toMatchObject({
+      access_token: 'recovery-access',
+      refresh_token: 'recovery-refresh',
+      user: { id: 'user-123', email: 'learner@example.com' },
+    })
+    expect(fetch).toHaveBeenCalledWith('https://study.example.supabase.co/auth/v1/user', expect.objectContaining({
+      headers: { apikey: 'public-test-key', authorization: 'Bearer recovery-access' },
+    }))
+    expect(window.localStorage.getItem('studymate.supabase.session')).toContain('recovery-access')
+    expect(window.location.href).not.toContain('recovery-access')
+  })
 })

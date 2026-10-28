@@ -700,6 +700,17 @@ body { background: #f3f7f2; }
 .auth-privacy { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; color: #78877d; font-size: 11px; }.auth-privacy svg { color: #65926d; }
 .auth-switch-row { display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 31px; color: #7b8980; font-size: 12px; }.auth-switch { width: auto; margin: 0; padding: 6px; color: #28714a; font-size: 12px; }.auth-switch:hover { color: #174c31; text-decoration: underline; }.auth-mobile-brand { display: none; }
 .auth-card .form-error { margin: 4px 0 0; padding: 11px 12px; border-radius: 10px; font-size: 12px; }
+.auth-forgot-link { justify-self: end; margin: -2px 0 2px; padding: 3px 0; border: 0; background: transparent; color: #34764e; font-size: 12px; font-weight: 700; cursor: pointer; transition: color .16s ease, transform .16s ease; }
+.auth-forgot-link:hover { color: #194f32; transform: translateX(2px); }
+.auth-forgot-link:focus-visible, .auth-switch:focus-visible { outline: 3px solid rgba(72, 135, 89, .28); outline-offset: 3px; border-radius: 4px; }
+.auth-password-match { margin: -5px 0 0; color: #a44d3d; font-size: 11px; }
+.auth-recovery-complete { display: grid; justify-items: center; gap: 10px; text-align: center; animation: auth-recovery-enter .35s ease both; }
+.auth-recovery-check { width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid #d5e8d4; border-radius: 16px; background: linear-gradient(145deg, #edf7e9, #dcefd9); color: #34764e; box-shadow: 0 8px 22px rgba(45, 119, 69, .12); }
+.auth-recovery-complete > strong { color: #24432e; font-size: 18px; letter-spacing: -.03em; }
+.auth-recovery-complete > p { margin: 0 0 8px; color: #78877d; font-size: 13px; line-height: 1.6; }
+.auth-recovery-complete .auth-submit { width: 100%; }
+@keyframes auth-recovery-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .auth-forgot-link, .auth-recovery-complete { animation: none; transition: none; transform: none; } }
 
 @media (max-width: 760px) {
   .auth-shell { min-height: 100svh; padding: 20px; }

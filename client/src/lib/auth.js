@@ -13,13 +13,13 @@ function writeSession(session) {
   else window.localStorage.removeItem(storageKey)
 }
 
-async function authRequest(path, body) {
+async function authRequest(path, body, accessToken, method = 'POST') {
   let response
   try {
     response = await fetch(`${supabaseUrl}/auth/v1/${path}`, {
-      method: 'POST',
-      headers: { apikey: supabaseAnonKey, 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      method,
+      headers: { apikey: supabaseAnonKey, ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(15_000),
     })
   } catch {
@@ -66,6 +66,67 @@ export async function signUp(email, password) {
   const payload = await authRequest('signup', { email, password })
   const session = sessionFrom(payload)
   if (session) writeSession(session)
+  return session
+}
+
+export async function requestPasswordReset(email, redirectTo) {
+  const redirect = encodeURIComponent(redirectTo)
+  await authRequest(`recover?redirect_to=${redirect}`, { email })
+}
+
+export async function updatePassword(password, accessToken) {
+  if (!accessToken) throw new Error('Your password reset session has expired. Request a new reset email.')
+  await authRequest('user', { password }, accessToken, 'PUT')
+}
+
+export async function consumePasswordRecovery() {
+  const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const query = new URLSearchParams(window.location.search)
+  const recoveryRequested = fragment.get('type') === 'recovery' || query.get('flow') === 'recovery'
+  if (!recoveryRequested) return null
+
+  const clearRecoveryUrl = () => {
+    query.delete('flow')
+    const remainingQuery = query.toString()
+    window.history.replaceState({}, document.title, `${window.location.pathname}${remainingQuery ? `?${remainingQuery}` : ''}`)
+  }
+
+  if (fragment.has('error') || query.has('error')) {
+    clearRecoveryUrl()
+    throw new Error('This password reset link is invalid or has expired. Request a new one.')
+  }
+
+  const accessToken = fragment.get('access_token')
+  const refreshToken = fragment.get('refresh_token')
+  const expiresIn = Number(fragment.get('expires_in')) || 3600
+  if (!accessToken || !refreshToken) {
+    clearRecoveryUrl()
+    throw new Error('This password reset link is incomplete or has expired. Request a new one.')
+  }
+
+  let response
+  try {
+    response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: supabaseAnonKey, authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(15_000),
+    })
+  } catch {
+    throw new Error('Could not verify this reset link. Check your connection and try again.')
+  }
+  const user = await response.json().catch(() => ({}))
+  if (!response.ok || !user?.id) {
+    clearRecoveryUrl()
+    throw new Error('This password reset link is invalid or has expired. Request a new one.')
+  }
+
+  const session = {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+    user: { id: user.id, email: user.email },
+  }
+  writeSession(session)
+  clearRecoveryUrl()
   return session
 }
 

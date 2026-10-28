@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import App from './App.jsx'
+import App, { AuthScreen } from './App.jsx'
 import { createQuiz, createSummary, getHealth, sendChatMessage } from './lib/api.js'
 
 vi.mock('./lib/api.js', () => ({
@@ -184,5 +184,42 @@ describe('StudyMate MVP screens', () => {
     await user.click(screen.getAllByRole('button', { name: /Open quiz/ })[0])
     expect(screen.getByRole('heading', { name: /Cell biology: energy and organelles/ })).toBeInTheDocument()
     expect(screen.getByText('Where does glycolysis take place?')).toBeInTheDocument()
+  })
+})
+
+describe('StudyMate password recovery screens', () => {
+  it('lets a user request a reset link without revealing whether the email is registered', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue('If an account exists for this email, a password reset link will be sent shortly.')
+    render(<AuthScreen onSubmit={onSubmit} />)
+
+    await user.click(screen.getByRole('button', { name: 'Forgot password?' }))
+    expect(screen.getByRole('heading', { name: 'Reset your password.' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Email address'), 'learner@example.com')
+    await user.click(screen.getByRole('button', { name: 'Send reset link' }))
+
+    expect(onSubmit).toHaveBeenCalledWith('forgot', 'learner@example.com', '')
+    expect(await screen.findByRole('status')).toHaveTextContent('If an account exists for this email')
+  })
+
+  it('requires matching new passwords and confirms a successful password update', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue('Your password has been updated.')
+    const onRecoveryComplete = vi.fn()
+    render(<AuthScreen initialMode="reset" email="learner@example.com" onSubmit={onSubmit} onRecoveryComplete={onRecoveryComplete} />)
+
+    await user.type(screen.getByLabelText('New password'), 'new-study-password')
+    await user.type(screen.getByLabelText('Confirm new password'), 'different-password')
+    await user.click(screen.getByRole('button', { name: 'Update password' }))
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByText('Your passwords do not match. Check both fields and try again.')).toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText('Confirm new password'))
+    await user.type(screen.getByLabelText('Confirm new password'), 'new-study-password')
+    await user.click(screen.getByRole('button', { name: 'Update password' }))
+    expect(onSubmit).toHaveBeenCalledWith('reset', 'learner@example.com', 'new-study-password')
+    expect(await screen.findByText('Password updated')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue to StudyMate' }))
+    expect(onRecoveryComplete).toHaveBeenCalledOnce()
   })
 })

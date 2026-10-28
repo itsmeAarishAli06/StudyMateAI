@@ -4,7 +4,7 @@ import BrandMark from './components/BrandMark.jsx'
 import SiteFooter from './components/SiteFooter.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import { createStudyItem, getAiDailyUsage, getHealth, getStudyItems } from './lib/api.js'
-import { authConfigured, getSession, signIn, signOut, signUp } from './lib/auth.js'
+import { authConfigured, consumePasswordRecovery, getSession, requestPasswordReset, signIn, signOut, signUp, updatePassword } from './lib/auth.js'
 import { getCurrentStreak } from './lib/progress.js'
 import ChatPage from './pages/ChatPage.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -38,6 +38,7 @@ function App() {
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(authConfigured)
   const [authError, setAuthError] = useState('')
+  const [authFlow, setAuthFlow] = useState('')
   const [activePage, setActivePage] = useState('home')
   const [items, setItems] = useState(() => authConfigured ? [] : loadSavedItems())
   const [chatMessages, setChatMessages] = useState([])
@@ -67,11 +68,22 @@ function App() {
   useEffect(() => {
     if (!authConfigured) return undefined
     let active = true
-    getSession().then((currentSession) => {
-      if (!active) return
-      setSession(currentSession)
-      setAuthLoading(false)
-    })
+    async function restoreSession() {
+      try {
+        const recoverySession = await consumePasswordRecovery()
+        const currentSession = recoverySession || await getSession()
+        if (!active) return
+        if (recoverySession) setAuthFlow('recovery')
+        setSession(currentSession)
+      } catch (error) {
+        if (!active) return
+        setAuthError(error.message)
+        setSession(null)
+      } finally {
+        if (active) setAuthLoading(false)
+      }
+    }
+    restoreSession()
     return () => { active = false }
   }, [])
 
@@ -225,6 +237,15 @@ function App() {
   async function submitAuth(mode, email, password) {
     setAuthError('')
     try {
+      if (mode === 'forgot') {
+        const redirectTo = `${window.location.origin}/?flow=recovery`
+        await requestPasswordReset(email, redirectTo)
+        return 'If an account exists for this email, a password reset link will be sent shortly.'
+      }
+      if (mode === 'reset') {
+        await updatePassword(password, session?.access_token)
+        return 'Your password has been updated. You can now continue to StudyMate.'
+      }
       const nextSession = mode === 'signup' ? await signUp(email, password) : await signIn(email, password)
       if (!nextSession) return 'Check your email for a confirmation link, then sign in.'
       setSession(nextSession)
@@ -246,6 +267,7 @@ function App() {
   }
 
   if (authLoading) return <AuthLoading />
+  if (authConfigured && authFlow === 'recovery' && session) return <AuthScreen initialMode="reset" email={session.user.email || ''} error={authError} onSubmit={submitAuth} onRecoveryComplete={() => { setAuthError(''); setAuthFlow('') }} />
   if (authConfigured && !session) return <AuthScreen error={authError} onSubmit={submitAuth} />
 
   return (
@@ -354,19 +376,40 @@ function AuthLoading() {
   return <main className="auth-shell"><div className="auth-loading-card" role="status"><span className="auth-brand-mark"><BrandMark className="brand-mark-graphic" /></span><span className="button-spinner" /><h1>Loading your study space</h1><p>Getting everything ready for you.</p></div></main>
 }
 
-function AuthScreen({ error, onSubmit }) {
-  const [mode, setMode] = useState('signin')
-  const [email, setEmail] = useState('')
+export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: initialEmail = '', onRecoveryComplete }) {
+  const [mode, setMode] = useState(initialMode)
+  const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [message, setMessage] = useState('')
+  const [localError, setLocalError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [passwordUpdated, setPasswordUpdated] = useState(false)
   const isSignIn = mode === 'signin'
+  const isForgot = mode === 'forgot'
+  const isReset = mode === 'reset'
+
+  const heading = isSignIn
+    ? ['WELCOME BACK', 'Sign in to your space.', 'Pick up right where your learning left off.']
+    : mode === 'signup'
+      ? ['A FRESH START', 'Create your account.', 'Set up your private study space in a moment.']
+      : isForgot
+        ? ['ACCOUNT RECOVERY', 'Reset your password.', 'We’ll email you a secure link to get back into your study space.']
+        : ['SECURE YOUR ACCOUNT', 'Choose a new password.', 'Create a fresh password for your StudyMate account.']
 
   async function submit(event) {
     event.preventDefault()
     setMessage('')
+    if (isReset && password !== passwordConfirmation) {
+      setLocalError('Your passwords do not match. Check both fields and try again.')
+      return
+    }
+    setLocalError('')
     setLoading(true)
-    try { setMessage(await onSubmit(mode, email.trim(), password)) } catch { /* Error is rendered by the parent. */ } finally { setLoading(false) }
+    try {
+      setMessage(await onSubmit(mode, email.trim(), password))
+      if (isReset) setPasswordUpdated(true)
+    } catch { /* Error is rendered by the parent. */ } finally { setLoading(false) }
   }
 
   return (
@@ -390,18 +433,22 @@ function AuthScreen({ error, onSubmit }) {
 
         <section className="auth-card">
           <div className="auth-mobile-brand"><span className="auth-brand-mark"><BrandMark className="brand-mark-graphic" /></span><span>StudyMate<span>AI</span></span></div>
-          <div className="auth-form-heading"><span className="auth-form-kicker">{isSignIn ? 'WELCOME BACK' : 'A FRESH START'}</span><h1>{isSignIn ? 'Sign in to your space.' : 'Create your account.'}</h1><p>{isSignIn ? 'Pick up right where your learning left off.' : 'Set up your private study space in a moment.'}</p></div>
-          <form onSubmit={submit}>
+          <div className="auth-form-heading"><span className="auth-form-kicker">{heading[0]}</span><h1>{heading[1]}</h1><p>{heading[2]}</p></div>
+          {passwordUpdated ? <div className="auth-recovery-complete" role="status"><span className="auth-recovery-check"><Icon name="check" size={19} /></span><strong>Password updated</strong><p>Your new password is ready. Sign in with it the next time you return.</p><button className="button button-primary full-button auth-submit" type="button" onClick={onRecoveryComplete}>Continue to StudyMate <Icon name="arrow" size={16} /></button></div> : <form onSubmit={submit}>
             <label className="field-label" htmlFor="auth-email">Email address</label>
-            <div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="chat" size={16} /></span><input className="text-input" id="auth-email" type="email" autoComplete="email" placeholder="you@example.com" required value={email} onChange={(event) => setEmail(event.target.value)} /></div>
-            <label className="field-label" htmlFor="auth-password">Password</label>
-            <div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="history" size={16} /></span><input className="text-input" id="auth-password" type="password" autoComplete={isSignIn ? 'current-password' : 'new-password'} placeholder="At least 6 characters" minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} /></div>
-            {(error || message) && <p className={error ? 'form-error' : 'auth-success'} role={error ? 'alert' : 'status'}>{error || message}</p>}
-            <button className="button button-primary full-button auth-submit" type="submit" disabled={loading}>{loading ? <><span className="button-spinner" /> Please wait...</> : <>{isSignIn ? 'Sign in' : 'Create account'} <Icon name="arrow" size={16} /></>}</button>
-          </form>
+            <div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="mail" size={16} /></span><input className="text-input" id="auth-email" type="email" autoComplete="email" placeholder="you@example.com" required value={email} onChange={(event) => setEmail(event.target.value)} disabled={isReset} /></div>
+            {!isForgot && <>
+              <label className="field-label" htmlFor="auth-password">{isReset ? 'New password' : 'Password'}</label>
+              <div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="history" size={16} /></span><input className="text-input" id="auth-password" type="password" autoComplete={isSignIn ? 'current-password' : 'new-password'} placeholder={isReset ? 'Choose at least 6 characters' : 'At least 6 characters'} minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} /></div>
+              {isReset && <><label className="field-label" htmlFor="auth-password-confirm">Confirm new password</label><div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="history" size={16} /></span><input className="text-input" id="auth-password-confirm" type="password" autoComplete="new-password" placeholder="Enter the new password again" minLength={6} required value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} /></div>{passwordConfirmation && passwordConfirmation !== password && <small className="auth-password-match" role="alert">Passwords do not match.</small>}</>}
+              {isSignIn && <button className="auth-forgot-link" type="button" onClick={() => { setMode('forgot'); setMessage('') }}>Forgot password?</button>}
+            </>}
+            {(error || localError || message) && <p className={error || localError ? 'form-error' : 'auth-success'} role={error || localError ? 'alert' : 'status'}>{error || localError || message}</p>}
+            <button className="button button-primary full-button auth-submit" type="submit" disabled={loading}>{loading ? <><span className="button-spinner" /> Please wait...</> : <>{isSignIn ? 'Sign in' : mode === 'signup' ? 'Create account' : isForgot ? 'Send reset link' : 'Update password'} <Icon name="arrow" size={16} /></>}</button>
+          </form>}
           <div className="auth-divider"><span /> <small>YOUR PROGRESS, KEPT SAFE</small> <span /></div>
           <p className="auth-privacy"><Icon name="check" size={14} /> Your study history stays private to your account.</p>
-          <div className="auth-switch-row"><span>{isSignIn ? 'New to StudyMate?' : 'Already have an account?'}</span><button className="auth-switch" type="button" onClick={() => { setMode(isSignIn ? 'signup' : 'signin'); setMessage('') }}>{isSignIn ? 'Create an account' : 'Sign in'}</button></div>
+          {!isReset && !passwordUpdated && <div className="auth-switch-row">{isForgot ? <><span>Remembered your password?</span><button className="auth-switch" type="button" onClick={() => { setMode('signin'); setMessage('') }}>Back to sign in</button></> : <><span>{isSignIn ? 'New to StudyMate?' : 'Already have an account?'}</span><button className="auth-switch" type="button" onClick={() => { setMode(isSignIn ? 'signup' : 'signin'); setMessage('') }}>{isSignIn ? 'Create an account' : 'Sign in'}</button></>}</div>}
         </section>
       </div>
     </main>
