@@ -2,10 +2,13 @@ import { AppError } from '../lib/errors.js'
 
 function getAiConfig() {
   const configuredTimeout = Number.parseInt(process.env.GEMINI_REQUEST_TIMEOUT_MS || '20000', 10)
+  const model = process.env.GEMINI_MODEL?.trim()
+  const fallbackModel = process.env.GEMINI_FALLBACK_MODEL?.trim()
+  const apiKey = process.env.GEMINI_API_KEY?.trim()
   return {
-    model: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
-    fallbackModel: process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash-lite',
-    apiKey: process.env.GEMINI_API_KEY,
+    model: model || 'gemini-3.6-flash',
+    fallbackModel: fallbackModel || 'gemini-3.5-flash-lite',
+    apiKey,
     timeoutMs: Number.isInteger(configuredTimeout) && configuredTimeout >= 5000 && configuredTimeout <= 30000
       ? configuredTimeout
       : 20000,
