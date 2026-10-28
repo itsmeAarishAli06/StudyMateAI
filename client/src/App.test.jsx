@@ -188,6 +188,19 @@ describe('StudyMate MVP screens', () => {
 })
 
 describe('StudyMate password recovery screens', () => {
+  it('lets sign-in users reveal and hide their password accessibly', async () => {
+    const user = userEvent.setup()
+    render(<AuthScreen onSubmit={vi.fn()} />)
+
+    const password = screen.getByLabelText('Password')
+    expect(password).toHaveAttribute('type', 'password')
+    await user.click(screen.getByRole('button', { name: 'Show password' }))
+    expect(password).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'Hide password' }))
+    expect(password).toHaveAttribute('type', 'password')
+  })
+
   it('lets a user request a reset link without revealing whether the email is registered', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue('If an account exists for this email, a password reset link will be sent shortly.')
@@ -208,14 +221,23 @@ describe('StudyMate password recovery screens', () => {
     const onRecoveryComplete = vi.fn()
     render(<AuthScreen initialMode="reset" email="learner@example.com" onSubmit={onSubmit} onRecoveryComplete={onRecoveryComplete} />)
 
-    await user.type(screen.getByLabelText('New password'), 'new-study-password')
-    await user.type(screen.getByLabelText('Confirm new password'), 'different-password')
+    const newPassword = screen.getByLabelText('New password')
+    const confirmation = screen.getByLabelText('Confirm new password')
+    await user.click(screen.getByRole('button', { name: 'Show password' }))
+    expect(newPassword).toHaveAttribute('type', 'text')
+    await user.click(screen.getByRole('button', { name: 'Show confirmation password' }))
+    expect(confirmation).toHaveAttribute('type', 'text')
+    await user.click(screen.getByRole('button', { name: 'Hide password' }))
+    await user.click(screen.getByRole('button', { name: 'Hide confirmation password' }))
+
+    await user.type(newPassword, 'new-study-password')
+    await user.type(confirmation, 'different-password')
     await user.click(screen.getByRole('button', { name: 'Update password' }))
     expect(onSubmit).not.toHaveBeenCalled()
     expect(screen.getByText('Your passwords do not match. Check both fields and try again.')).toBeInTheDocument()
 
-    await user.clear(screen.getByLabelText('Confirm new password'))
-    await user.type(screen.getByLabelText('Confirm new password'), 'new-study-password')
+    await user.clear(confirmation)
+    await user.type(confirmation, 'new-study-password')
     await user.click(screen.getByRole('button', { name: 'Update password' }))
     expect(onSubmit).toHaveBeenCalledWith('reset', 'learner@example.com', 'new-study-password')
     expect(await screen.findByText('Password updated')).toBeInTheDocument()
