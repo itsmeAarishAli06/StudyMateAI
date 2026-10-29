@@ -42,6 +42,7 @@ function SiteFooter({ onNavigate, linkedinUrl = '', portfolioUrl = '', contactEm
               <span>StudyMate<span>AI</span></span>
             </button>
             <p>A calmer space to understand your notes, practice what you learn, and keep moving forward.</p>
+            <span className="footer-founder">Founded by <strong>Aarish Ali</strong></span>
             <span className="footer-value"><Icon name="check" size={14} /> Built to support your study rhythm</span>
           </section>
 

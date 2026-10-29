@@ -33,7 +33,7 @@ function NavItems({ activePage, onNavigate, mobile = false }) {
     >
       <Icon name={item.icon} size={18} />
       <span>{mobile ? mobileLabels[item.id] : item.label}</span>
-      {item.id === 'quiz' && !mobile && <span className="nav-tag">NEW</span>}
+      {item.id === 'exam' && !mobile && <span className="nav-tag">NEW</span>}
     </button>
   ))
 }

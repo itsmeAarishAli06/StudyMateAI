@@ -60,8 +60,12 @@ describe('StudyMate MVP screens', () => {
     expect(screen.getByRole('button', { name: /Ask your AI tutor/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Summarize your notes/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Practice with a quiz/ })).toBeInTheDocument()
+    const mainNavigation = within(screen.getAllByRole('navigation', { name: 'Main navigation' })[0])
+    expect(mainNavigation.getByRole('button', { name: /Exam preparation.*NEW/i })).toBeInTheDocument()
+    expect(mainNavigation.getByRole('button', { name: 'Quiz maker' })).not.toHaveTextContent('NEW')
     expect(screen.getByText('Your study history will show up here')).toBeInTheDocument()
     expect(screen.getByText(/StudyMate AI uses artificial intelligence to generate educational content/)).toBeInTheDocument()
+    expect(screen.getByText(/Founded by/)).toHaveTextContent('Founded by Aarish Ali')
     expect(screen.getByRole('link', { name: 'Visit my personal portfolio (opens in a new tab)' })).toHaveAttribute('href', 'https://aarishali.infinityfreeapp.com/')
   })
 

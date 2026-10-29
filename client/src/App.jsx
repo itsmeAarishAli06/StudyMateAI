@@ -290,7 +290,7 @@ function App() {
                 : 'Your study streak appears when saved history is available.'}
               onClick={() => setActivePage('home')}
             >
-              <Icon name="flame" size={17} />
+              <Icon name="flame" size={19} className={`streak-flame${streakAvailable && currentStreak > 0 ? ' is-burning' : ''}`} />
               <strong>{streakAvailable ? currentStreak : '—'}</strong>
               <span>day streak</span>
             </button>
