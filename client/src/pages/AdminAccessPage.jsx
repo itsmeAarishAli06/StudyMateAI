@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Icon from '../components/Icon.jsx'
 import { getAdminPaymentRequests, reviewAdminPaymentRequest, revokeAdminStudyAccess } from '../lib/api.js'
+import AdminStudentsPage from './AdminStudentsPage.jsx'
 
 function AdminAccessPage({ token, onAccessChange }) {
   const [requests, setRequests] = useState([])
@@ -10,9 +11,11 @@ function AdminAccessPage({ token, onAccessChange }) {
   const [busyId, setBusyId] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [activeSection, setActiveSection] = useState('students')
 
   const refresh = useCallback(async () => {
     setStatus('loading')
+    setError('')
     try {
       setRequests(await getAdminPaymentRequests(token))
       setStatus('ready')
@@ -22,7 +25,9 @@ function AdminAccessPage({ token, onAccessChange }) {
     }
   }, [token])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    if (activeSection === 'requests') refresh()
+  }, [activeSection, refresh])
 
   async function review(item, decision) {
     if (decision === 'approve' && !references[item.id]?.trim()) {
@@ -67,7 +72,13 @@ function AdminAccessPage({ token, onAccessChange }) {
   return (
     <div className="page workspace-page admin-access-page">
       <div className="page-kicker"><span className="kicker-dot" /> PRIVATE ADMIN WORKSPACE</div>
-      <div className="page-title-row"><div><h1>Payment requests.</h1><p className="page-subtitle">Verify each payment in your payment account before granting access.</p></div><button className="quiet-button admin-refresh" type="button" onClick={refresh} disabled={status === 'loading'}><Icon name="refresh" size={15} />Refresh</button></div>
+      <div className="page-title-row"><div><h1>Admin workspace.</h1><p className="page-subtitle">Review student accounts, confirm payments, and manage Premium access.</p></div>{activeSection === 'requests' && <button className="quiet-button admin-refresh" type="button" onClick={refresh} disabled={status === 'loading'}><Icon name="refresh" size={15} />Refresh</button>}</div>
+      <div className="admin-section-tabs" role="tablist" aria-label="Admin workspace sections">
+        <button id="admin-students-tab" type="button" role="tab" aria-controls="admin-students-panel" aria-selected={activeSection === 'students'} className={activeSection === 'students' ? 'selected' : ''} onClick={() => setActiveSection('students')}><Icon name="history" size={16} />Students</button>
+        <button id="admin-requests-tab" type="button" role="tab" aria-controls="admin-requests-panel" aria-selected={activeSection === 'requests'} className={activeSection === 'requests' ? 'selected' : ''} onClick={() => setActiveSection('requests')}><Icon name="check" size={16} />Payment requests</button>
+      </div>
+      {activeSection === 'students' && <div id="admin-students-panel" role="tabpanel" tabIndex={0} aria-labelledby="admin-students-tab"><AdminStudentsPage token={token} onAccessChange={onAccessChange} /></div>}
+      {activeSection === 'requests' && <div id="admin-requests-panel" role="tabpanel" tabIndex={0} aria-labelledby="admin-requests-tab">
       {error && <div className="plan-error" role="alert">{error}</div>}
       {notice && <div className="admin-success" role="status"><Icon name="check" size={15} />{notice}</div>}
       {status === 'loading' && <div className="history-loading-banner" role="status">Loading payment requests…</div>}
@@ -84,6 +95,7 @@ function AdminAccessPage({ token, onAccessChange }) {
         </article>
       ))}</section>}
       <p className="admin-safety-note"><Icon name="lightbulb" size={15} /> A screenshot is not proof of payment. Confirm the transaction in your bank or wallet before approving.</p>
+      </div>}
     </div>
   )
 }

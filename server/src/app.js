@@ -13,6 +13,7 @@ import aiUsageRouter from './routes/aiUsage.js'
 import examsRouter from './routes/exams.js'
 import studyAccessRouter from './routes/studyAccess.js'
 import adminAccessRouter from './routes/adminAccess.js'
+import studentProfileRouter from './routes/studentProfile.js'
 import { getSharedAiRateLimiter } from './middleware/rateLimit.js'
 import { requireAiAccount } from './middleware/requireSupabaseUser.js'
 
@@ -58,6 +59,7 @@ app.use('/api/health', healthRouter)
 app.use('/api/ai-usage', aiUsageRouter)
 app.use('/api/access', studyAccessRouter)
 app.use('/api/admin', adminAccessRouter)
+app.use('/api/profile', studentProfileRouter)
 app.use('/api/exams', examsRouter)
 app.use('/api/chat', aiRateLimit, requireAiAccount, chatRouter)
 app.use('/api/summaries', aiRateLimit, requireAiAccount, summariesRouter)

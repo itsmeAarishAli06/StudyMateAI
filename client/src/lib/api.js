@@ -74,6 +74,19 @@ export function revokeAdminStudyAccess(userId, note, token) {
   return request(`/api/admin/access/${encodeURIComponent(userId)}/revoke`, { note }, token)
 }
 
+export function getAdminStudents({ status = 'all', search = '', limit = 30, offset = 0 } = {}, token) {
+  const query = new URLSearchParams({ status, search, limit: String(limit), offset: String(offset) })
+  return request(`/api/admin/students?${query}`, undefined, token)
+}
+
+export function getStudentProfile(token) {
+  return request('/api/profile', undefined, token).then((result) => result.profile)
+}
+
+export function updateStudentProfile(profile, token) {
+  return request('/api/profile', profile, token, 'PATCH').then((result) => result.profile)
+}
+
 function notifyAiUsageRefresh() {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('studymate:ai-usage-refresh'))
 }

@@ -10,6 +10,25 @@ router.get('/payment-requests', requireSupabaseUser, async (request, response) =
   response.json({ requests: result || [] })
 })
 
+router.get('/students', requireSupabaseUser, async (request, response) => {
+  const status = request.query.status || 'all'
+  const search = typeof request.query.search === 'string' ? request.query.search.trim() : ''
+  const limit = Number(request.query.limit ?? 30)
+  const offset = Number(request.query.offset ?? 0)
+  if (!['all', 'premium', 'free'].includes(status)) throw new AppError(400, 'VALIDATION_ERROR', 'Choose all, premium, or free students.')
+  if (search.length > 100) throw new AppError(400, 'VALIDATION_ERROR', 'Search must be 100 characters or fewer.')
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset) || offset < 0 || offset > 100_000) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'The student list page is invalid. Refresh and try again.')
+  }
+  const result = await callStudyAccessRpc(request, 'admin_list_studymate_students', {
+    p_status: status,
+    p_search: search,
+    p_limit: limit,
+    p_offset: offset,
+  })
+  response.json({ students: result?.students || [], total: result?.total || 0, counts: result?.counts || { all: 0, premium: 0, free: 0, admins: 0 } })
+})
+
 router.post('/payment-requests/:id/review', requireSupabaseUser, async (request, response) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.id)) throw new AppError(400, 'VALIDATION_ERROR', 'Payment request ID is invalid.')
   const { decision, transactionReference = '', note = '' } = request.body || {}

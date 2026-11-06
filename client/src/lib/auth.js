@@ -36,7 +36,7 @@ function sessionFrom(payload) {
     access_token: payload.access_token,
     refresh_token: payload.refresh_token,
     expires_at: payload.expires_at || Math.floor(Date.now() / 1000) + (payload.expires_in || 3600),
-    user: { id: payload.user.id, email: payload.user.email },
+    user: { id: payload.user.id, email: payload.user.email, user_metadata: payload.user.user_metadata || {} },
   }
 }
 
@@ -62,8 +62,8 @@ export async function signIn(email, password) {
   return session
 }
 
-export async function signUp(email, password) {
-  const payload = await authRequest('signup', { email, password })
+export async function signUp(email, password, profile) {
+  const payload = await authRequest('signup', { email, password, data: profile })
   const session = sessionFrom(payload)
   if (session) writeSession(session)
   return session

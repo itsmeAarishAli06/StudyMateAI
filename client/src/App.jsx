@@ -3,7 +3,7 @@ import Icon from './components/Icon.jsx'
 import BrandMark from './components/BrandMark.jsx'
 import SiteFooter from './components/SiteFooter.jsx'
 import Sidebar from './components/Sidebar.jsx'
-import { createStudyItem, getAiDailyUsage, getHealth, getStudyAccess, getStudyItems } from './lib/api.js'
+import { createStudyItem, getAiDailyUsage, getHealth, getStudentProfile, getStudyAccess, getStudyItems } from './lib/api.js'
 import { authConfigured, consumePasswordRecovery, getSession, requestPasswordReset, signIn, signOut, signUp, updatePassword } from './lib/auth.js'
 import { getPasswordStrength } from './lib/passwordStrength.js'
 import { getCurrentStreak } from './lib/progress.js'
@@ -16,6 +16,7 @@ import SummaryPage from './pages/SummaryPage.jsx'
 import StudyPlanPage from './pages/StudyPlanPage.jsx'
 import PlanPage from './pages/PlanPage.jsx'
 import AdminAccessPage from './pages/AdminAccessPage.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
 import './App.css'
 
 const pageNames = {
@@ -27,7 +28,12 @@ const pageNames = {
   history: 'Study history',
   planner: 'Study planner',
   plans: 'Plan & access',
-  admin: 'Admin payments',
+  admin: 'Admin workspace',
+  profile: 'My profile',
+}
+
+function normalizePhoneInput(value) {
+  return value.trim().replace(/[\s().-]/g, '')
 }
 
 function loadSavedItems() {
@@ -53,6 +59,7 @@ function App() {
   const [quizTopicSeed, setQuizTopicSeed] = useState(null)
   const [toast, setToast] = useState('')
   const [profileOpen, setProfileOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const profileMenuRef = useRef(null)
   const profileTriggerRef = useRef(null)
   const [apiStatus, setApiStatus] = useState('checking')
@@ -62,11 +69,13 @@ function App() {
   const [accountAccess, setAccountAccess] = useState(authConfigured ? null : { isAdmin: false, planKey: 'free', premiumActive: false, dailyLimit: 10, pendingRequest: null })
   const [accessStatus, setAccessStatus] = useState(authConfigured ? 'loading' : 'ready')
   const [accessError, setAccessError] = useState('')
+  const [studentProfile, setStudentProfile] = useState(null)
+  const [profileStatus, setProfileStatus] = useState(authConfigured ? 'idle' : 'ready')
   const [historyStatus, setHistoryStatus] = useState(authConfigured ? 'loading' : 'demo')
   const currentStreak = getCurrentStreak(items)
   const streakAvailable = !authConfigured || historyStatus === 'ready' || historyStatus === 'demo'
   const premiumActive = Boolean(accountAccess?.isAdmin || (accountAccess?.premiumActive && (!accountAccess.expiresAt || Date.parse(accountAccess.expiresAt) > Date.now())))
-  const studentName = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || session?.user?.user_metadata?.display_name || ''
+  const studentName = studentProfile?.fullName || session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || session?.user?.user_metadata?.display_name || ''
   const studentEmail = session?.user?.email || ''
 
   useEffect(() => {
@@ -112,6 +121,33 @@ function App() {
       setAuthError(error.message)
     })
     return () => { active = false }
+  }, [session?.access_token])
+
+  useEffect(() => {
+    const token = session?.access_token
+    if (!authConfigured || !token) {
+      setStudentProfile(null)
+      setProfileStatus('ready')
+      return undefined
+    }
+    let active = true
+    async function refreshProfile() {
+      setProfileStatus('loading')
+      try {
+        const profile = await getStudentProfile(token)
+        if (!active) return
+        setStudentProfile(profile)
+        setProfileStatus('ready')
+      } catch {
+        if (active) setProfileStatus('error')
+      }
+    }
+    window.addEventListener('studymate:profile-refresh', refreshProfile)
+    refreshProfile()
+    return () => {
+      active = false
+      window.removeEventListener('studymate:profile-refresh', refreshProfile)
+    }
   }, [session?.access_token])
 
   useEffect(() => {
@@ -244,6 +280,7 @@ function App() {
       return
     }
     setActivePage(page)
+    setSidebarOpen(false)
   }
 
   async function saveSummary(summary) {
@@ -295,7 +332,7 @@ function App() {
     }
   }
 
-  async function submitAuth(mode, email, password) {
+  async function submitAuth(mode, email, password, profile) {
     setAuthError('')
     try {
       if (mode === 'forgot') {
@@ -307,7 +344,7 @@ function App() {
         await updatePassword(password, session?.access_token)
         return 'Your password has been updated. You can now continue to StudyMate.'
       }
-      const nextSession = mode === 'signup' ? await signUp(email, password) : await signIn(email, password)
+      const nextSession = mode === 'signup' ? await signUp(email, password, profile) : await signIn(email, password)
       if (!nextSession) return 'Check your email for a confirmation link, then sign in.'
       setSession(nextSession)
       setAuthLoading(false)
@@ -333,9 +370,10 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar activePage={activePage} onNavigate={navigatePage} aiMode={apiStatus === 'offline' ? 'offline' : aiMode} isAdmin={Boolean(accountAccess?.isAdmin)} premiumActive={premiumActive || !authConfigured} />
+      <Sidebar activePage={activePage} onNavigate={navigatePage} aiMode={apiStatus === 'offline' ? 'offline' : aiMode} isAdmin={Boolean(accountAccess?.isAdmin)} premiumActive={premiumActive || !authConfigured} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} studentName={studentName} studentClass={studentProfile?.className || ''} studentEmail={studentEmail} />
       <div className="workspace">
         <header className="workspace-topbar">
+          <button className="sidebar-toggle" type="button" aria-label="Open navigation menu" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Icon name="menu" size={19} /></button>
           <div className="mobile-brand"><span className="brand-symbol"><BrandMark className="brand-mark-graphic" /></span><span className="brand-name">StudyMate<span>AI</span></span></div>
           <div className="breadcrumb"><span>Workspace</span><Icon name="chevron" size={13} /><strong aria-current="page">{pageNames[activePage]}</strong></div>
           <div className="topbar-actions">
@@ -400,6 +438,7 @@ function App() {
                   )}
                   {authConfigured
                     ? <div className="profile-menu-actions">
+                      <button className="profile-menu-change-password" type="button" onClick={() => { setProfileOpen(false); navigatePage('profile') }}><Icon name="briefcase" size={16} />Student profile<Icon className="profile-menu-action-arrow" name="arrow" size={14} /></button>
                       {accountAccess?.isAdmin && <button className="profile-menu-change-password" type="button" onClick={() => { setProfileOpen(false); navigatePage('admin') }}><Icon name="check" size={16} />Admin payments<Icon className="profile-menu-action-arrow" name="arrow" size={14} /></button>}
                       <button className="profile-menu-change-password" type="button" onClick={() => { setProfileOpen(false); setAuthError(''); setAuthFlow('password-change') }}><Icon name="history" size={16} />Change password<Icon className="profile-menu-action-arrow" name="arrow" size={14} /></button>
                       <button className="profile-menu-signout" type="button" onClick={handleSignOut}><Icon name="logout" size={16} />Sign out</button>
@@ -414,20 +453,23 @@ function App() {
         {authConfigured && historyStatus === 'error' && <div className="history-error-banner" role="alert">{authError || 'Study history could not be loaded.'}<button type="button" onClick={() => { setAuthError(''); setHistoryStatus('loading'); getStudyItems(session.access_token).then((saved) => { setItems(saved); setHistoryStatus('ready') }).catch((error) => { setAuthError(error.message); setHistoryStatus('error') }) }}>Retry</button></div>}
         {authConfigured && historyStatus === 'loading' && <div className="history-loading-banner" role="status">Loading your study history…</div>}
         {!authConfigured && <div className="demo-history-banner" role="status">Demo mode: history is saved in this browser. Add Supabase settings to enable your private account history.</div>}
+        {authConfigured && profileStatus === 'ready' && studentProfile && !studentProfile.complete && <div className="profile-completion-banner" role="status"><Icon name="briefcase" size={17} /><span><strong>Finish setting up your student profile.</strong> Add your class and contact details so the admin can identify your payment request.</span><button type="button" onClick={() => navigatePage('profile')}>Complete profile</button></div>}
+        {authConfigured && profileStatus === 'error' && <div className="profile-completion-banner is-error" role="status"><Icon name="alert" size={17} /><span>Student profile details could not be loaded.</span><button type="button" onClick={() => window.dispatchEvent(new Event('studymate:profile-refresh'))}>Retry</button></div>}
 
         <main className="main-content" key={activePage}>
           {activePage === 'home' && <Dashboard savedItems={items} onNavigate={navigatePage} onOpenItem={openItem} />}
           {activePage === 'chat' && <ChatPage messages={chatMessages} onMessagesChange={setChatMessages} onNavigate={navigatePage} aiMode={aiMode} accessToken={session?.access_token} learningMode={chatLearningMode} onLearningModeChange={setChatLearningMode} />}
           {activePage === 'summary' && <SummaryPage selectedSummary={selectedSummary} onSave={saveSummary} onToast={setToast} onReset={() => setSelectedSummary(null)} accessToken={session?.access_token} />}
           {activePage === 'quiz' && (authConfigured && !premiumActive && !selectedQuiz
-            ? <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} token={session.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} onToast={setToast} usage={aiUsage} />
+            ? <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session.access_token} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />
             : <QuizPage selectedQuiz={selectedQuiz} topicSeed={quizTopicSeed} onTopicSeedConsumed={() => setQuizTopicSeed(null)} savedItems={items} onSave={saveQuiz} onReset={() => { setSelectedQuiz(null); setQuizTopicSeed(null) }} onToast={setToast} accessToken={session?.access_token} />)}
-          {activePage === 'exam' && (authConfigured && !premiumActive ? <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} token={session.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} onToast={setToast} usage={aiUsage} /> : <ExamPreparationPage accessToken={session?.access_token} onNavigate={navigatePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />)}
+          {activePage === 'exam' && (authConfigured && !premiumActive ? <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session.access_token} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} /> : <ExamPreparationPage accessToken={session?.access_token} onNavigate={navigatePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />)}
           {activePage === 'history' && <HistoryPage items={items} onOpenItem={openItem} onNavigate={navigatePage} />}
           {activePage === 'planner' && <StudyPlanPage accessToken={session?.access_token} onToast={setToast} />}
-          {activePage === 'plans' && <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} token={session?.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} onToast={setToast} usage={aiUsage} />}
+          {activePage === 'profile' && <ProfilePage token={session?.access_token} profile={studentProfile} onProfileUpdated={(profile) => { setStudentProfile(profile); setProfileStatus('ready') }} />}
+          {activePage === 'plans' && <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session?.access_token} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />}
           {activePage === 'admin' && accountAccess?.isAdmin && <AdminAccessPage token={session?.access_token} onAccessChange={() => window.dispatchEvent(new Event('studymate:access-refresh'))} />}
-          {activePage === 'admin' && !accountAccess?.isAdmin && <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} token={session?.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} onToast={setToast} usage={aiUsage} />}
+          {activePage === 'admin' && !accountAccess?.isAdmin && <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session?.access_token} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />}
         </main>
         <SiteFooter
           onNavigate={navigatePage}
@@ -451,6 +493,11 @@ export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: ini
   const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [className, setClassName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [whatsappSame, setWhatsappSame] = useState(true)
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [confirmationVisible, setConfirmationVisible] = useState(false)
   const [message, setMessage] = useState('')
@@ -483,7 +530,23 @@ export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: ini
     setLocalError('')
     setLoading(true)
     try {
-      setMessage(await onSubmit(mode, email.trim(), password))
+      const signupProfile = mode === 'signup' ? {
+        full_name: fullName.trim().replace(/\s+/g, ' '),
+        class_name: className.trim().replace(/\s+/g, ' '),
+        phone_e164: normalizePhoneInput(phone),
+        whatsapp_phone_e164: normalizePhoneInput(whatsappSame ? phone : whatsappPhone),
+      } : undefined
+      if (mode === 'signup' && (signupProfile.full_name.length < 2 || signupProfile.class_name.length < 1)) {
+        setLocalError('Enter your name and class or grade to create your account.')
+        setLoading(false)
+        return
+      }
+      if (mode === 'signup' && (![signupProfile.phone_e164, signupProfile.whatsapp_phone_e164].every((value) => /^\+[1-9]\d{7,14}$/.test(value)))) {
+        setLocalError('Enter phone numbers with country code, for example +923001234567.')
+        setLoading(false)
+        return
+      }
+      setMessage(await onSubmit(mode, email.trim(), password, signupProfile))
       if (isReset) setPasswordUpdated(true)
     } catch { /* Error is rendered by the parent. */ } finally { setLoading(false) }
   }
@@ -511,6 +574,17 @@ export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: ini
           <div className="auth-mobile-brand"><span className="auth-brand-mark"><BrandMark className="brand-mark-graphic" /></span><span>StudyMate<span>AI</span></span></div>
           <div className="auth-form-heading"><span className="auth-form-kicker">{heading[0]}</span><h1>{heading[1]}</h1><p>{heading[2]}</p></div>
           {passwordUpdated ? <div className="auth-recovery-complete" role="status"><span className="auth-recovery-check"><Icon name="check" size={19} /></span><strong>Password updated</strong><p>{passwordChange ? 'Your StudyMate password has changed. Your current session is still active.' : 'Your new password is ready. Sign in with it the next time you return.'}</p><button className="button button-primary full-button auth-submit" type="button" onClick={onRecoveryComplete}>Continue to StudyMate <Icon name="arrow" size={16} /></button></div> : <form onSubmit={submit}>
+            {mode === 'signup' && <div className="signup-profile-fields">
+              <label className="field-label" htmlFor="auth-full-name">Full name</label>
+              <input className="text-input" id="auth-full-name" type="text" autoComplete="name" maxLength={100} minLength={2} required value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Your name" />
+              <label className="field-label" htmlFor="auth-class-name">Class or grade</label>
+              <input className="text-input" id="auth-class-name" type="text" maxLength={80} required value={className} onChange={(event) => setClassName(event.target.value)} placeholder="e.g. Grade 10 or Year 1" />
+              <label className="field-label" htmlFor="auth-phone">Phone number</label>
+              <input className="text-input" id="auth-phone" type="tel" autoComplete="tel" maxLength={24} required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+923001234567" />
+              <small className="signup-phone-hint">Include your country code. Numbers are stored in international format.</small>
+              <label className="signup-same-number"><input type="checkbox" checked={whatsappSame} onChange={(event) => setWhatsappSame(event.target.checked)} /><span>Use this as my WhatsApp number too</span></label>
+              {!whatsappSame && <><label className="field-label" htmlFor="auth-whatsapp">WhatsApp number</label><input className="text-input" id="auth-whatsapp" type="tel" autoComplete="tel" maxLength={24} required value={whatsappPhone} onChange={(event) => setWhatsappPhone(event.target.value)} placeholder="+923001234567" /></>}
+            </div>}
             <label className="field-label" htmlFor="auth-email">Email address</label>
             <div className="auth-input-wrap"><span className="auth-input-icon"><Icon name="mail" size={16} /></span><input className="text-input" id="auth-email" type="email" autoComplete="email" placeholder="you@example.com" required value={email} onChange={(event) => setEmail(event.target.value)} disabled={isReset} /></div>
             {!isForgot && <>
