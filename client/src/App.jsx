@@ -61,6 +61,7 @@ function App() {
   const [aiUsageStatus, setAiUsageStatus] = useState('idle')
   const [accountAccess, setAccountAccess] = useState(authConfigured ? null : { isAdmin: false, planKey: 'free', premiumActive: false, dailyLimit: 10, pendingRequest: null })
   const [accessStatus, setAccessStatus] = useState(authConfigured ? 'loading' : 'ready')
+  const [accessError, setAccessError] = useState('')
   const [historyStatus, setHistoryStatus] = useState(authConfigured ? 'loading' : 'demo')
   const currentStreak = getCurrentStreak(items)
   const streakAvailable = !authConfigured || historyStatus === 'ready' || historyStatus === 'demo'
@@ -124,15 +125,17 @@ function App() {
     let active = true
     async function refreshAccess() {
       setAccessStatus((status) => status === 'ready' ? 'refreshing' : 'loading')
+      setAccessError('')
       try {
         const result = await getStudyAccess(token)
         if (!active) return
         setAccountAccess(result)
         setAccessStatus('ready')
         window.dispatchEvent(new Event('studymate:ai-usage-refresh'))
-      } catch {
+      } catch (error) {
         if (!active) return
         setAccessStatus('error')
+        setAccessError(error.message || 'Study plan information is temporarily unavailable. Please retry.')
       }
     }
     const refresh = () => refreshAccess()
@@ -417,14 +420,14 @@ function App() {
           {activePage === 'chat' && <ChatPage messages={chatMessages} onMessagesChange={setChatMessages} onNavigate={navigatePage} aiMode={aiMode} accessToken={session?.access_token} learningMode={chatLearningMode} onLearningModeChange={setChatLearningMode} />}
           {activePage === 'summary' && <SummaryPage selectedSummary={selectedSummary} onSave={saveSummary} onToast={setToast} onReset={() => setSelectedSummary(null)} accessToken={session?.access_token} />}
           {activePage === 'quiz' && (authConfigured && !premiumActive && !selectedQuiz
-            ? <PlanPage access={accountAccess} accessStatus={accessStatus} token={session.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />
+            ? <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} token={session.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} onToast={setToast} usage={aiUsage} />
             : <QuizPage selectedQuiz={selectedQuiz} topicSeed={quizTopicSeed} onTopicSeedConsumed={() => setQuizTopicSeed(null)} savedItems={items} onSave={saveQuiz} onReset={() => { setSelectedQuiz(null); setQuizTopicSeed(null) }} onToast={setToast} accessToken={session?.access_token} />)}
-          {activePage === 'exam' && (authConfigured && !premiumActive ? <PlanPage access={accountAccess} accessStatus={accessStatus} token={session.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} /> : <ExamPreparationPage accessToken={session?.access_token} onNavigate={navigatePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />)}
+          {activePage === 'exam' && (authConfigured && !premiumActive ? <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} token={session.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} onToast={setToast} usage={aiUsage} /> : <ExamPreparationPage accessToken={session?.access_token} onNavigate={navigatePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />)}
           {activePage === 'history' && <HistoryPage items={items} onOpenItem={openItem} onNavigate={navigatePage} />}
           {activePage === 'planner' && <StudyPlanPage accessToken={session?.access_token} onToast={setToast} />}
-          {activePage === 'plans' && <PlanPage access={accountAccess} accessStatus={accessStatus} token={session?.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />}
+          {activePage === 'plans' && <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} token={session?.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} onToast={setToast} usage={aiUsage} />}
           {activePage === 'admin' && accountAccess?.isAdmin && <AdminAccessPage token={session?.access_token} onAccessChange={() => window.dispatchEvent(new Event('studymate:access-refresh'))} />}
-          {activePage === 'admin' && !accountAccess?.isAdmin && <PlanPage access={accountAccess} accessStatus={accessStatus} token={session?.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />}
+          {activePage === 'admin' && !accountAccess?.isAdmin && <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} token={session?.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} onToast={setToast} usage={aiUsage} />}
         </main>
         <SiteFooter
           onNavigate={navigatePage}
@@ -434,7 +437,7 @@ function App() {
         />
       </div>
 
-      {toast && <div className="toast-message" role="status"><span className="toast-check"><Icon name="check" size={14} /></span>{toast}<button type="button" aria-label="Dismiss message" onClick={() => setToast('')}><Icon name="close" size={15} /></button></div>}
+      {toast && <div className={`toast-message${toast.startsWith('Please enter your full name') ? ' toast-warning' : ''}`} role="status"><span className="toast-check"><Icon name={toast.startsWith('Please enter your full name') ? 'alert' : 'check'} size={14} /></span>{toast}<button type="button" aria-label="Dismiss message" onClick={() => setToast('')}><Icon name="close" size={15} /></button></div>}
     </div>
   )
 }

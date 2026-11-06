@@ -233,6 +233,9 @@ test('chat, summary, and quiz all consume one quota unit after request validatio
   const fakeFetch = async (input) => {
     const url = new URL(input)
     if (url.pathname === '/auth/v1/user') return Response.json({ id: 'user-tools-123' })
+    if (url.pathname === '/rest/v1/rpc/get_studymate_access') {
+      return Response.json([{ is_admin: true, plan_key: 'admin', premium_active: false, started_at: null, expires_at: null, daily_limit: 30, pending_request: null, latest_request: null }])
+    }
     if (url.pathname === '/rest/v1/rpc/consume_ai_daily_request') {
       consumeCalls += 1
       return Response.json([{ allowed: true, used: consumeCalls, remaining: 30 - consumeCalls, daily_limit: 30, resets_at: '2026-10-25T00:00:00Z' }])

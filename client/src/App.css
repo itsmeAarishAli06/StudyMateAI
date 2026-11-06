@@ -434,6 +434,8 @@ button:disabled { cursor: not-allowed; }
 /* Toast and motion */
 .toast-message { position: fixed; z-index: 20; right: 25px; bottom: 24px; display: flex; align-items: center; gap: 9px; max-width: calc(100vw - 32px); padding: 11px 12px; border: 1px solid #dce7db; border-radius: 9px; background: #fff; box-shadow: 0 12px 30px rgba(30,48,34,.13); color: #526256; font-size: 12px; animation: toast-in .2s ease-out; }
 .toast-check { width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 7px; background: #eaf3e9; color: #59875e; }
+.toast-warning { border-color: #f0d6aa; background: #fffaf0; color: #704d20; }
+.toast-warning .toast-check { background: #fff0d3; color: #a56a16; }
 .toast-message > button { width: 24px; height: 24px; display: grid; place-items: center; margin-left: 3px; border: 0; border-radius: 5px; background: transparent; color: #93a096; cursor: pointer; }
 .toast-message > button:hover { background: #f3f6f2; }
 
@@ -692,6 +694,9 @@ body { background: #f3f7f2; }
 .plan-feature-summary small { color: #68796d; font-size: 11px; line-height: 1.5; }
 .payment-student-details { display: grid; gap: 6px; max-width: 560px; margin: 0 0 20px; }
 .payment-student-details .field-label { margin: 0; }
+.payment-student-details .text-input[aria-invalid="true"] { border-color: #c75443; background: #fffafa; box-shadow: 0 0 0 3px rgba(199, 84, 67, .1); }
+.payment-name-error { display: flex; align-items: center; gap: 6px; color: #a54135; font-size: 12px; font-weight: 650; line-height: 1.45; }
+.payment-name-error svg { flex: 0 0 auto; }
 .payment-student-details small { color: #68796d; font-size: 11px; line-height: 1.5; }
 .plan-offers { margin-top: 8px; }
 .plan-offers > .section-heading { margin-bottom: 12px; }
@@ -729,6 +734,19 @@ body { background: #f3f7f2; }
 .plan-request-result small { color: #806e59; font-size: 10px; }
 .plan-info-card { display: flex; align-items: center; gap: 10px; padding: 13px; border: 1px solid #e3e8df; border-radius: 10px; background: #fafbf8; color: #5f7064; font-size: 12px; }
 .plan-info-card svg { flex: 0 0 auto; }
+.plan-info-card > span { flex: 1 1 auto; line-height: 1.5; }
+.plan-info-card .quiet-button { flex: 0 0 auto; margin: 0; font-size: 12px; }
+.access-error-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(25, 39, 30, .42); backdrop-filter: blur(5px); animation: access-error-fade .18s ease-out both; }
+.access-error-dialog { position: relative; width: min(100%, 440px); padding: 30px; border: 1px solid #e5e9e2; border-radius: 20px; background: #fff; box-shadow: 0 28px 90px rgba(16, 31, 21, .24); text-align: center; animation: access-error-pop .22s cubic-bezier(.2,.8,.2,1) both; }
+.access-error-close { position: absolute; top: 13px; right: 13px; display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 10px; background: #f4f6f2; color: #68776b; cursor: pointer; }
+.access-error-close:hover { background: #eaf0e8; color: #344c3b; }
+.access-error-icon { display: grid; width: 52px; height: 52px; place-items: center; margin: 0 auto 15px; border: 1px solid #f0d9b4; border-radius: 16px; background: #fff7e9; color: #aa6c17; }
+.access-error-eyebrow { margin: 0 0 7px; color: #8b7550; font-size: 10px; font-weight: 800; letter-spacing: .13em; }
+.access-error-dialog h2 { margin: 0; color: #2d4033; font-size: 21px; letter-spacing: -.035em; line-height: 1.3; }
+.access-error-dialog > p:last-of-type { margin: 11px 0 21px; color: #5e6d62; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.access-error-retry { min-width: 142px; justify-content: center; gap: 8px; }
+@keyframes access-error-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes access-error-pop { from { opacity: 0; transform: translateY(7px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .admin-refresh { display: inline-flex; align-items: center; gap: 6px; }
 .admin-request-list { display: grid; gap: 12px; margin-top: 14px; }
 .admin-request-card { padding: clamp(15px,2.5vw,21px); border: 1px solid #e1e8e0; border-radius: 14px; background: #fff; box-shadow: 0 7px 20px rgba(32, 51, 39, .04); }

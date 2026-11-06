@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Icon from '../components/Icon.jsx'
 import { cancelPaymentRequest, createPaymentRequest, getStudyAccess } from '../lib/api.js'
 
@@ -29,17 +29,27 @@ function whatsappWebLink(paymentRequest, studentName, studentEmail) {
   return `https://web.whatsapp.com/send?phone=${whatsappNumber}&text=${message}`
 }
 
-function PlanPage({ access, accessStatus, token, studentName: initialStudentName = '', studentEmail = '', onAccessChange, usage }) {
+function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, token, studentName: initialStudentName = '', studentEmail = '', onAccessChange, onToast, usage }) {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [nameError, setNameError] = useState('')
+  const [accessDialogDismissed, setAccessDialogDismissed] = useState(false)
   const [studentName, setStudentName] = useState(initialStudentName)
+  const nameInputRef = useRef(null)
+
+  function requireStudentName() {
+    setNameError('Your full name is required to continue.')
+    onToast?.('Please enter your full name so the admin can identify your payment request.')
+    nameInputRef.current?.focus()
+  }
 
   async function startRequest(planKey) {
     const cleanStudentName = studentName.trim().replace(/\s+/g, ' ')
     if (!cleanStudentName) {
-      setError('Enter your name so the StudyMate admin can identify your payment request.')
+      requireStudentName()
       return
     }
+    setNameError('')
     setBusy(planKey)
     setError('')
     try {
@@ -98,7 +108,16 @@ function PlanPage({ access, accessStatus, token, studentName: initialStudentName
       </div>
 
       {error && <div className="plan-error" role="alert">{error}</div>}
-      {accessStatus === 'error' && <div className="plan-info-card" role="alert"><Icon name="refresh" size={18} /><span>Your plan status could not be loaded. Refresh the page or try again shortly.</span></div>}
+      {accessStatus === 'error' && !accessDialogDismissed && <div className="access-error-backdrop">
+        <section className="access-error-dialog" role="alertdialog" aria-modal="true" aria-labelledby="access-error-title" aria-describedby="access-error-description">
+          <button className="access-error-close" type="button" aria-label="Close message" onClick={() => setAccessDialogDismissed(true)}><Icon name="close" size={18} /></button>
+          <span className="access-error-icon"><Icon name="alert" size={22} /></span>
+          <p className="access-error-eyebrow">PLAN STATUS</p>
+          <h2 id="access-error-title">We couldn’t load your plan information</h2>
+          <p id="access-error-description">{accessError || 'StudyMate could not load your plan details. Please retry.'}</p>
+          <button className="button button-primary access-error-retry" type="button" onClick={() => { setAccessDialogDismissed(false); onRetryAccess?.() }}><Icon name="refresh" size={16} /> Try again</button>
+        </section>
+      </div>}
       {access?.latestRequest?.status === 'rejected' && <div className="plan-request-result" role="status"><strong>Your last payment request was declined.</strong><span>{access.latestRequest.reviewNote || 'Please message us on WhatsApp if you need help.'}</span><small>Request code: {access.latestRequest.requestCode}</small></div>}
 
       <section className="plan-current-card" aria-labelledby="current-plan-title">
@@ -124,15 +143,16 @@ function PlanPage({ access, accessStatus, token, studentName: initialStudentName
 
       <section className="payment-student-details" aria-label="Payment request contact details">
         <label className="field-label" htmlFor="payment-student-name">Your full name</label>
-        <input id="payment-student-name" className="text-input" type="text" autoComplete="name" maxLength={80} value={studentName} onChange={(event) => { setStudentName(event.target.value); setError('') }} placeholder="Enter the name you want us to use" />
-        <small>This name and your account email will be included in the WhatsApp draft sent to +92 317 2873743.</small>
+        <input ref={nameInputRef} id="payment-student-name" className="text-input" type="text" autoComplete="name" maxLength={80} value={studentName} aria-invalid={Boolean(nameError)} aria-describedby={nameError ? 'payment-student-name-error payment-student-name-help' : 'payment-student-name-help'} onChange={(event) => { setStudentName(event.target.value); setError(''); setNameError('') }} placeholder="Enter the name you want us to use" />
+        {nameError && <span id="payment-student-name-error" className="payment-name-error" role="alert"><Icon name="alert" size={15} />{nameError}</span>}
+        <small id="payment-student-name-help">This name and your account email will be included in the WhatsApp draft sent to +92 317 2873743.</small>
       </section>
 
       {pending ? (
         <section className="payment-pending-card" aria-labelledby="payment-pending-title">
           <div className="payment-pending-heading"><span className="pending-mark"><Icon name="clock" size={18} /></span><span><h2 id="payment-pending-title">Your request is ready</h2><p>Request code <strong>{pending.requestCode}</strong> · {pending.planKey === 'weekly' ? '7 days' : '30 days'} · Rs {pending.amountPkr}</p></span></div>
           <ol className="payment-steps"><li>Tap Open WhatsApp to message +92 317 2873743 with your details and request ID.</li><li>Review the draft, then tap Send. We’ll reply with payment instructions.</li><li>After you pay, send the transaction reference. Access starts after we verify it.</li></ol>
-          <div className="payment-request-actions"><a className={`button button-primary${!whatsappHref ? ' is-disabled' : ''}`} href={whatsappHref || undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!whatsappHref} onClick={(event) => { if (!whatsappHref) { event.preventDefault(); setError('Enter your full name first to prepare the WhatsApp message.') } }}><Icon name="send" size={15} /> Open WhatsApp</a><a className="quiet-button whatsapp-web-link" href={whatsappWebHref || undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!whatsappWebHref} onClick={(event) => { if (!whatsappWebHref) { event.preventDefault(); setError('Enter your full name first to prepare the WhatsApp message.') } }}>Use WhatsApp Web</a><button className="quiet-button" type="button" onClick={cancelRequest} disabled={busy === 'cancel'}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel request'}</button></div>
+        <div className="payment-request-actions"><a className={`button button-primary${!whatsappHref ? ' is-disabled' : ''}`} href={whatsappHref || undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!whatsappHref} onClick={(event) => { if (!whatsappHref) { event.preventDefault(); requireStudentName() } }}><Icon name="send" size={15} /> Open WhatsApp</a><a className="quiet-button whatsapp-web-link" href={whatsappWebHref || undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!whatsappWebHref} onClick={(event) => { if (!whatsappWebHref) { event.preventDefault(); requireStudentName() } }}>Use WhatsApp Web</a><button className="quiet-button" type="button" onClick={cancelRequest} disabled={busy === 'cancel'}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel request'}</button></div>
         </section>
       ) : (
         <section className="plan-offers" aria-labelledby="plan-offers-title">

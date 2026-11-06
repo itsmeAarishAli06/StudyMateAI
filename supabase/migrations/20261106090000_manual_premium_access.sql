@@ -121,21 +121,25 @@ begin
     raise exception using errcode = '28000', message = 'Authentication required';
   end if;
 
-  select * into v_entitlement from public.study_entitlements where user_id = v_user_id;
+  select entitlement.* into v_entitlement
+  from public.study_entitlements as entitlement
+  where entitlement.user_id = v_user_id;
   v_premium := found and v_entitlement.expires_at > now();
-  select jsonb_build_object('id', id, 'requestCode', request_code, 'planKey', plan_key,
-      'amountPkr', amount_pkr, 'status', status, 'createdAt', created_at)
+  select jsonb_build_object('id', payment_request.id, 'requestCode', payment_request.request_code,
+      'planKey', payment_request.plan_key, 'amountPkr', payment_request.amount_pkr,
+      'status', payment_request.status, 'createdAt', payment_request.created_at)
     into v_request
-    from public.study_payment_requests
-    where user_id = v_user_id and status = 'pending'
-    order by created_at desc limit 1;
-  select jsonb_build_object('id', id, 'requestCode', request_code, 'planKey', plan_key,
-      'amountPkr', amount_pkr, 'status', status, 'createdAt', created_at,
-      'reviewedAt', reviewed_at, 'reviewNote', review_note)
+    from public.study_payment_requests as payment_request
+    where payment_request.user_id = v_user_id and payment_request.status = 'pending'
+    order by payment_request.created_at desc limit 1;
+  select jsonb_build_object('id', payment_request.id, 'requestCode', payment_request.request_code,
+      'planKey', payment_request.plan_key, 'amountPkr', payment_request.amount_pkr,
+      'status', payment_request.status, 'createdAt', payment_request.created_at,
+      'reviewedAt', payment_request.reviewed_at, 'reviewNote', payment_request.review_note)
     into v_latest_request
-    from public.study_payment_requests
-    where user_id = v_user_id
-    order by created_at desc limit 1;
+    from public.study_payment_requests as payment_request
+    where payment_request.user_id = v_user_id
+    order by payment_request.created_at desc limit 1;
 
   return query select
     public.is_studymate_admin(),
