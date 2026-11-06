@@ -35,6 +35,9 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
   const [accessDialogDismissed, setAccessDialogDismissed] = useState(false)
   const cleanStudentName = studentName.trim().replace(/\s+/g, ' ')
   const hasStudentName = cleanStudentName.length >= 2
+  const expiryDate = access?.expiresAt ? new Date(access.expiresAt) : null
+  const validExpiryDate = expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate : null
+  const formattedExpiry = validExpiryDate?.toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })
 
   async function startRequest(planKey) {
     if (!hasStudentName) return
@@ -111,14 +114,15 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
         <div className="plan-current-icon"><Icon name={access?.premiumActive ? 'spark' : 'book'} size={20} /></div>
         <div className="plan-current-copy">
           <span className="aside-label">YOUR CURRENT PLAN</span>
-          <h2 id="current-plan-title">{accessStatus === 'loading' ? 'Checking your access…' : access?.isAdmin ? 'StudyMate Admin' : access?.premiumActive ? `StudyMate Premium · ${access.planKey === 'weekly' ? '7 days' : '30 days'}` : 'StudyMate Free'}</h2>
+          <h2 id="current-plan-title">{accessStatus === 'loading' ? 'Checking your access…' : access?.isAdmin ? 'StudyMate Admin' : access?.premiumActive ? `Premium · ${access.planKey === 'weekly' ? '7-day' : '30-day'} plan` : 'Free plan'}</h2>
           <p>{access?.isAdmin
-            ? 'Your administrator account includes premium tools and 30 daily AI requests.'
-            : access?.premiumActive && access.expiresAt
-            ? `Premium features are available until ${new Date(access.expiresAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}.`
-            : access?.expiresAt
-              ? `Premium access ended on ${new Date(access.expiresAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}. You are now using the Free plan.`
-              : 'AI Tutor, Summarizer, Study Planner, and saved study history remain available on Free.'}</p>
+            ? 'Admin access includes all Premium features and 30 daily AI requests with no expiry.'
+            : access?.premiumActive
+              ? 'Premium features are active on your account.'
+              : access?.expiresAt && formattedExpiry
+                ? `Your previous Premium access ended ${formattedExpiry}. You are now on the Free plan.`
+                : 'You are on the Free plan. AI Tutor, Summarizer, Study Planner, and saved study history are available.'}</p>
+          {access?.premiumActive && formattedExpiry && <div className="plan-expiry-highlight"><Icon name="clock" size={17} /><span><strong>Premium access ends</strong><time dateTime={validExpiryDate.toISOString()}>{formattedExpiry}</time></span></div>}
         </div>
         {usage && <div className="plan-usage"><strong>{usage.remaining}<small> / {usage.dailyLimit}</small></strong><span>AI requests left today</span></div>}
       </section>

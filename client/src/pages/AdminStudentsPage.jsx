@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import Icon from '../components/Icon.jsx'
-import { getAdminStudents, revokeAdminStudyAccess } from '../lib/api.js'
+import { getAdminStudents, grantAdminStudyAccess, revokeAdminStudyAccess } from '../lib/api.js'
 
 const pageSize = 30
 
@@ -8,6 +8,12 @@ function formatDate(value) {
   if (!value) return 'Not yet'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? 'Not available' : date.toLocaleDateString(undefined, { dateStyle: 'medium' })
+}
+
+function formatDateTime(value) {
+  if (!value) return 'Not available'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'Not available' : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 function AdminStudentsPage({ token, onAccessChange }) {
@@ -22,6 +28,7 @@ function AdminStudentsPage({ token, onAccessChange }) {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busyUserId, setBusyUserId] = useState('')
+  const [grantPlans, setGrantPlans] = useState({})
 
   const refresh = useCallback(async () => {
     setStatus('loading')
@@ -52,6 +59,29 @@ function AdminStudentsPage({ token, onAccessChange }) {
       onAccessChange?.()
     } catch (revokeError) {
       setError(revokeError.message || 'Could not remove Premium access.')
+    } finally {
+      setBusyUserId('')
+    }
+  }
+
+  async function grant(student) {
+    const planKey = grantPlans[student.user_id] || 'weekly'
+    const duration = planKey === 'weekly' ? '7 days' : '30 days'
+    const action = student.account_status === 'premium' ? 'extend' : 'grant'
+    const confirmation = action === 'extend'
+      ? `Extend ${student.email}'s Premium access by ${duration}? This takes effect immediately.`
+      : `Grant ${duration} of Premium access to ${student.email}? This takes effect immediately.`
+    if (!window.confirm(confirmation)) return
+    setBusyUserId(student.user_id)
+    setError('')
+    setNotice('')
+    try {
+      const result = await grantAdminStudyAccess(student.user_id, planKey, token)
+      setNotice(`Premium ${result.status === 'extend' ? 'extended' : 'granted'} for ${student.email} until ${formatDateTime(result.expiresAt)}.`)
+      await refresh()
+      onAccessChange?.()
+    } catch (grantError) {
+      setError(grantError.message || 'Could not grant Premium access.')
     } finally {
       setBusyUserId('')
     }
@@ -107,14 +137,22 @@ function AdminStudentsPage({ token, onAccessChange }) {
                 <div><span>Joined</span><strong>{formatDate(student.created_at)}</strong></div>
                 <div><span>Last active</span><strong>{formatDate(student.last_sign_in_at)}</strong></div>
                 <div><span>Plan</span><strong>{isAdmin ? 'Lifetime admin access' : isPremium ? `${student.plan_key === 'weekly' ? '7-day' : '30-day'} Premium` : 'Free / expired'}</strong></div>
-                <div><span>Access expires</span><strong>{isAdmin ? 'No expiry' : student.expires_at ? formatDate(student.expires_at) : '—'}</strong></div>
+                <div><span>Access expires</span><strong>{isAdmin ? 'No expiry' : student.expires_at ? formatDateTime(student.expires_at) : '—'}</strong></div>
               </div>
               <div className="admin-student-card-footer">
                 <span className={student.full_name && student.class_name && student.phone_e164 && student.whatsapp_phone_e164 ? 'profile-complete' : 'profile-incomplete'}>
                   <Icon name={student.full_name && student.class_name && student.phone_e164 && student.whatsapp_phone_e164 ? 'check' : 'alert'} size={14} />
                   {student.full_name && student.class_name && student.phone_e164 && student.whatsapp_phone_e164 ? 'Profile complete' : 'Profile details incomplete'}
                 </span>
-                {isPremium && <button className="quiet-button revoke-button" type="button" disabled={Boolean(busyUserId)} onClick={() => revoke(student)}>{busyUserId === student.user_id ? 'Removing access…' : 'Remove Premium access'}</button>}
+                {!isAdmin && <div className="admin-student-management">
+                  <label className="sr-only" htmlFor={`grant-plan-${student.user_id}`}>Premium access duration for {student.email}</label>
+                  <select id={`grant-plan-${student.user_id}`} className="admin-grant-plan-select" value={grantPlans[student.user_id] || 'weekly'} disabled={Boolean(busyUserId)} onChange={(event) => setGrantPlans((current) => ({ ...current, [student.user_id]: event.target.value }))}>
+                    <option value="weekly">7 days</option>
+                    <option value="monthly">30 days</option>
+                  </select>
+                  <button className="button button-secondary admin-grant-button" type="button" disabled={Boolean(busyUserId)} onClick={() => grant(student)}>{busyUserId === student.user_id ? 'Saving…' : isPremium ? 'Extend Premium' : 'Grant Premium'}</button>
+                  {isPremium && <button className="quiet-button revoke-button" type="button" disabled={Boolean(busyUserId)} onClick={() => revoke(student)}>{busyUserId === student.user_id ? 'Removing…' : 'Remove Premium'}</button>}
+                </div>}
               </div>
             </article>
           })}

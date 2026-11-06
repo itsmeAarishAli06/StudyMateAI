@@ -681,6 +681,11 @@ body { background: #f3f7f2; }
 .plan-current-copy { min-width: 0; flex: 1; }
 .plan-current-copy h2 { margin: 5px 0 4px; color: #2e4435; font-size: 19px; letter-spacing: -.035em; }
 .plan-current-copy p { margin: 0; color: #68796d; font-size: 12px; line-height: 1.55; }
+.plan-expiry-highlight { width: fit-content; display: inline-flex; align-items: center; gap: 9px; margin-top: 12px; padding: 9px 12px; border: 1px solid #d9e8d4; border-radius: 10px; background: #f2f8ef; color: #4e7749; }
+.plan-expiry-highlight > svg { flex: 0 0 auto; }
+.plan-expiry-highlight > span { display: grid; gap: 2px; }
+.plan-expiry-highlight strong { color: #54734b; font-size: 10px; font-weight: 750; }
+.plan-expiry-highlight time { color: #294f35; font-size: 13px; font-weight: 750; font-variant-numeric: tabular-nums; }
 .plan-usage { display: grid; gap: 2px; flex: 0 0 auto; padding-left: 16px; border-left: 1px solid #e1e8e0; text-align: right; }
 .plan-usage strong { color: #315e3d; font-size: 20px; font-variant-numeric: tabular-nums; }
 .plan-usage strong small { color: #7d8b81; font-size: 12px; font-weight: 650; }
@@ -1596,6 +1601,10 @@ body { background: #f3f7f2; }
 .profile-complete { color: #39784e; }
 .profile-incomplete { color: #8e6630; }
 .admin-student-card-footer .revoke-button { margin: 0; font-size: 12px; }
+.admin-student-management { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+.admin-grant-plan-select { min-height: 35px; padding: 0 28px 0 10px; border: 1px solid #dfe7de; border-radius: 8px; background: #fff; color: #42594a; font-size: 12px; font-weight: 650; }
+.admin-grant-button { min-height: 35px; padding: 0 11px; font-size: 12px; }
+.admin-student-management .revoke-button { margin: 0; padding-inline: 8px; font-size: 11px; }
 .admin-students-pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0; color: #5e7064; font-size: 12px; }
 .admin-students-pagination > div { display: flex; gap: 7px; }
 .admin-students-pagination .button { min-height: 34px; padding: 0 11px; font-size: 11px; }
@@ -1636,6 +1645,8 @@ body { background: #f3f7f2; }
   .admin-student-card-heading { align-items: flex-start; flex-wrap: wrap; }
   .admin-student-card-heading > .admin-request-status { margin: 4px 0 0 auto; }
   .admin-students-pagination { align-items: flex-start; flex-direction: column; }
+  .admin-student-card-footer { align-items: flex-start; flex-direction: column; }
+  .admin-student-management { justify-content: flex-start; width: 100%; }
   .profile-completion-banner { flex-wrap: wrap; }
   .profile-completion-banner button { margin-left: 27px; }
 }
@@ -1657,6 +1668,15 @@ body { background: #f3f7f2; }
 @media (prefers-reduced-motion: reduce) {
   .learning-mode-option { transition: none; }
 }
+
+/* Preserve the original auth-panel proportions while letting short screens scroll. */
+.auth-shell { overflow-x: hidden; overflow-y: auto; }
+
+/* Center the registration story as one group; keep sign-in's original layout. */
+.auth-frame-signup .auth-story { justify-content: center; gap: clamp(20px, 3.5vh, 34px); }
+.auth-frame-signup .auth-story-copy { margin: 0; padding-top: 0; }
+.auth-frame-signup .auth-preview { margin: 0 auto; }
+.auth-frame-signup .auth-story-foot { margin-top: 0; }
 
 /* Compact streak shortcut in the workspace navigation. */
 .study-streak-quick { min-height: 39px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; border: 1px solid #eee4d4; border-radius: 11px; background: linear-gradient(145deg, #fffaf2, #fff5e8); color: #875b2a; font: inherit; cursor: pointer; white-space: nowrap; transition: transform .17s ease, border-color .17s ease, background .17s ease, box-shadow .17s ease; }

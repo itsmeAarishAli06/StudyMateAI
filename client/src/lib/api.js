@@ -79,6 +79,10 @@ export function getAdminStudents({ status = 'all', search = '', limit = 30, offs
   return request(`/api/admin/students?${query}`, undefined, token)
 }
 
+export function grantAdminStudyAccess(userId, planKey, token) {
+  return request(`/api/admin/students/${encodeURIComponent(userId)}/grant`, { planKey }, token).then((result) => result.result)
+}
+
 export function getStudentProfile(token) {
   return request('/api/profile', undefined, token).then((result) => result.profile)
 }

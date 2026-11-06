@@ -29,6 +29,17 @@ router.get('/students', requireSupabaseUser, async (request, response) => {
   response.json({ students: result?.students || [], total: result?.total || 0, counts: result?.counts || { all: 0, premium: 0, free: 0, admins: 0 } })
 })
 
+router.post('/students/:userId/grant', requireSupabaseUser, async (request, response) => {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.userId)) throw new AppError(400, 'VALIDATION_ERROR', 'User ID is invalid.')
+  const planKey = request.body?.planKey
+  if (!['weekly', 'monthly'].includes(planKey)) throw new AppError(400, 'VALIDATION_ERROR', 'Choose the 7-day or 30-day plan.')
+  const result = await callStudyAccessRpc(request, 'admin_grant_study_access', {
+    p_user_id: request.params.userId,
+    p_plan_key: planKey,
+  })
+  response.json({ result })
+})
+
 router.post('/payment-requests/:id/review', requireSupabaseUser, async (request, response) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.id)) throw new AppError(400, 'VALIDATION_ERROR', 'Payment request ID is invalid.')
   const { decision, transactionReference = '', note = '' } = request.body || {}

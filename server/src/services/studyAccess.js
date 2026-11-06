@@ -34,15 +34,26 @@ export async function callStudyAccessRpc(request, functionName, args = {}) {
     const code = payload?.code || /"code"\s*:\s*"([A-Z0-9]+)"/.exec(errorText)?.[1]
     const databaseMessage = typeof payload?.message === 'string' ? payload.message.slice(0, 240) : 'database error'
     if (code === '42501' || response.status === 403) throw new AppError(403, 'ADMIN_REQUIRED', 'This action is available to StudyMate administrators only.')
-    if (code === '23505') throw new AppError(409, 'REQUEST_PENDING', 'You already have a payment request waiting for review.')
-    if (code === 'P0002') throw new AppError(404, 'REQUEST_NOT_FOUND', 'That pending payment request could not be found.')
-    if (code === '22023') throw new AppError(400, 'INVALID_ACCESS_REQUEST', 'The access request is invalid. Check the details and try again.')
+    if (code === '23505') {
+      if (functionName === 'admin_grant_study_access') throw new AppError(409, 'PAYMENT_REQUEST_PENDING', 'This student has a pending payment request. Review it from the Payment requests tab before granting access manually.')
+      throw new AppError(409, 'REQUEST_PENDING', 'You already have a payment request waiting for review.')
+    }
+    if (code === 'P0002') {
+      if (functionName === 'admin_grant_study_access') throw new AppError(409, 'STUDENT_NOT_ELIGIBLE', 'This account was not found or its email has not been confirmed yet.')
+      throw new AppError(404, 'REQUEST_NOT_FOUND', 'That pending payment request could not be found.')
+    }
+    if (code === '22023') {
+      if (functionName === 'admin_grant_study_access') throw new AppError(400, 'INVALID_ACCESS_REQUEST', 'This account cannot receive the selected Premium access.')
+      throw new AppError(400, 'INVALID_ACCESS_REQUEST', 'The access request is invalid. Check the details and try again.')
+    }
     if (code === '28000') throw new AppError(401, 'INVALID_SESSION', 'Your StudyMate session has expired. Sign in again.')
     if (['PGRST202', '42702', '42883', '42P01', '42703'].includes(code)) {
       console.error(`Study access database RPC ${functionName} is unavailable:`, code, databaseMessage)
       const migrationMessage = functionName === 'admin_list_studymate_students'
         ? 'The student directory setup is incomplete. Apply the latest student profile migration in Supabase, then retry.'
-        : 'StudyMate plan setup is incomplete. Apply the manual Premium access migration in Supabase, then retry.'
+        : functionName === 'admin_grant_study_access'
+          ? 'Manual Premium grants are not set up yet. Apply the latest admin Premium grant migration in Supabase, then retry.'
+          : 'StudyMate plan setup is incomplete. Apply the manual Premium access migration in Supabase, then retry.'
       throw new AppError(503, 'ACCESS_SETUP_REQUIRED', migrationMessage)
     }
     console.error(`Study access database RPC ${functionName} failed:`, response.status, code || 'unknown database code', databaseMessage)

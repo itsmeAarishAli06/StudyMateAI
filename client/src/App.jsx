@@ -553,7 +553,7 @@ export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: ini
 
   return (
     <main className="auth-shell">
-      <div className="auth-frame">
+      <div className={`auth-frame${mode === 'signup' ? ' auth-frame-signup' : ''}`}>
         <section className="auth-story" aria-label="StudyMate introduction">
           <div className="auth-brand"><span className="auth-brand-mark"><BrandMark className="brand-mark-graphic" /></span><span>StudyMate<span>AI</span></span></div>
           <div className="auth-story-copy">
