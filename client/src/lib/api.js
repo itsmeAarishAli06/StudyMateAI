@@ -35,7 +35,9 @@ async function request(path, body, token, method = body === undefined ? 'GET' : 
   }
 
   if (!response.ok) {
-    throw new Error(payload?.error?.message || `The StudyMate API returned an error (${response.status}).`)
+    const error = new Error(payload?.error?.message || `The StudyMate API returned an error (${response.status}).`)
+    error.code = payload?.error?.code
+    throw error
   }
   return payload
 }

@@ -1,35 +1,65 @@
 import { useState } from 'react'
 import Icon from '../components/Icon.jsx'
-import { cancelPaymentRequest, createPaymentRequest } from '../lib/api.js'
+import { cancelPaymentRequest, createPaymentRequest, getStudyAccess } from '../lib/api.js'
 
 const whatsappLocalNumber = '03172873743'
 const whatsappCountryCode = '92'
 const whatsappNumber = `${whatsappCountryCode}${whatsappLocalNumber.replace(/\D/g, '').replace(/^0/, '')}`
 
-function paymentMessage(paymentRequest) {
+function paymentMessage(paymentRequest, studentName, studentEmail) {
   const planName = paymentRequest.planKey === 'weekly' ? '7-day Premium' : '30-day Premium'
-  return `Hello StudyMate, I want to activate the ${planName} plan (Rs ${paymentRequest.amountPkr}). My request code is ${paymentRequest.requestCode}. Please share the payment instructions.`
+  return [
+    'Hello StudyMate, I would like to purchase Premium access.',
+    `Student name: ${studentName}`,
+    `StudyMate account email: ${studentEmail}`,
+    `Request ID: ${paymentRequest.requestCode}`,
+    `Plan: ${planName}`,
+    `Amount: Rs ${paymentRequest.amountPkr} PKR`,
+    'Please share the payment instructions.',
+  ].join('\n')
 }
 
-function whatsappLink(paymentRequest) {
-  const message = encodeURIComponent(paymentMessage(paymentRequest))
+function whatsappLink(paymentRequest, studentName, studentEmail) {
+  const message = encodeURIComponent(paymentMessage(paymentRequest, studentName, studentEmail))
   return `https://wa.me/${whatsappNumber}?text=${message}`
 }
 
-function PlanPage({ access, accessStatus, token, onAccessChange, usage }) {
+function whatsappWebLink(paymentRequest, studentName, studentEmail) {
+  const message = encodeURIComponent(paymentMessage(paymentRequest, studentName, studentEmail))
+  return `https://web.whatsapp.com/send?phone=${whatsappNumber}&text=${message}`
+}
+
+function PlanPage({ access, accessStatus, token, studentName: initialStudentName = '', studentEmail = '', onAccessChange, usage }) {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [studentName, setStudentName] = useState(initialStudentName)
 
   async function startRequest(planKey) {
+    const cleanStudentName = studentName.trim().replace(/\s+/g, ' ')
+    if (!cleanStudentName) {
+      setError('Enter your name so the StudyMate admin can identify your payment request.')
+      return
+    }
     setBusy(planKey)
     setError('')
     try {
-      const paymentRequest = await createPaymentRequest(planKey, token)
-      onAccessChange((current) => ({ ...current, pendingRequest: paymentRequest }))
-      // Use WhatsApp's official Click to Chat endpoint. If the browser does not
-      // hand off automatically after the API call, the pending screen below
-      // exposes the same URL as a normal user-clicked link.
-      window.location.href = whatsappLink(paymentRequest)
+      let paymentRequest
+      try {
+        paymentRequest = await createPaymentRequest(planKey, token)
+      } catch (requestError) {
+        if (requestError.code !== 'REQUEST_PENDING') throw requestError
+        const latestAccess = await getStudyAccess(token)
+        paymentRequest = latestAccess.pendingRequest
+        if (!paymentRequest) throw requestError
+        onAccessChange(latestAccess)
+      }
+      if (paymentRequest) {
+        onAccessChange((current) => ({ ...current, pendingRequest: paymentRequest }))
+      }
+      // Keep this step on the site. The student then clicks a real WhatsApp
+      // anchor after the async request finishes; browsers can block app handoff
+      // when it is triggered by JavaScript after awaiting a network request.
+      setBusy('')
     } catch (requestError) {
       setError(requestError.message)
       setBusy('')
@@ -51,7 +81,13 @@ function PlanPage({ access, accessStatus, token, onAccessChange, usage }) {
   }
 
   const pending = access?.pendingRequest
-  const whatsappHref = pending ? whatsappLink(pending) : ''
+  const cleanStudentName = studentName.trim().replace(/\s+/g, ' ')
+  const whatsappHref = pending && cleanStudentName
+    ? whatsappLink(pending, cleanStudentName, studentEmail)
+    : ''
+  const whatsappWebHref = pending && cleanStudentName
+    ? whatsappWebLink(pending, cleanStudentName, studentEmail)
+    : ''
 
   return (
     <div className="page workspace-page plans-page">
@@ -86,11 +122,17 @@ function PlanPage({ access, accessStatus, token, onAccessChange, usage }) {
         <div><span className="plan-feature-check premium-check"><Icon name="spark" size={14} /></span><span><strong>Premium</strong><small>Everything in Free, plus Quiz Maker and Exam Preparation · 30 AI requests daily</small></span></div>
       </section>
 
+      <section className="payment-student-details" aria-label="Payment request contact details">
+        <label className="field-label" htmlFor="payment-student-name">Your full name</label>
+        <input id="payment-student-name" className="text-input" type="text" autoComplete="name" maxLength={80} value={studentName} onChange={(event) => { setStudentName(event.target.value); setError('') }} placeholder="Enter the name you want us to use" />
+        <small>This name and your account email will be included in the WhatsApp draft sent to +92 317 2873743.</small>
+      </section>
+
       {pending ? (
         <section className="payment-pending-card" aria-labelledby="payment-pending-title">
           <div className="payment-pending-heading"><span className="pending-mark"><Icon name="clock" size={18} /></span><span><h2 id="payment-pending-title">Your request is ready</h2><p>Request code <strong>{pending.requestCode}</strong> · {pending.planKey === 'weekly' ? '7 days' : '30 days'} · Rs {pending.amountPkr}</p></span></div>
-          <ol className="payment-steps"><li>Open WhatsApp and send the drafted request.</li><li>We’ll reply with payment instructions.</li><li>After you pay, send the transaction reference. Access starts after we verify it.</li></ol>
-          <div className="payment-request-actions"><a className="button button-primary" href={whatsappHref} target="_blank" rel="noopener noreferrer"><Icon name="send" size={15} /> Open WhatsApp</a><button className="quiet-button" type="button" onClick={cancelRequest} disabled={busy === 'cancel'}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel request'}</button></div>
+          <ol className="payment-steps"><li>Tap Open WhatsApp to message +92 317 2873743 with your details and request ID.</li><li>Review the draft, then tap Send. We’ll reply with payment instructions.</li><li>After you pay, send the transaction reference. Access starts after we verify it.</li></ol>
+          <div className="payment-request-actions"><a className={`button button-primary${!whatsappHref ? ' is-disabled' : ''}`} href={whatsappHref || undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!whatsappHref} onClick={(event) => { if (!whatsappHref) { event.preventDefault(); setError('Enter your full name first to prepare the WhatsApp message.') } }}><Icon name="send" size={15} /> Open WhatsApp</a><a className="quiet-button whatsapp-web-link" href={whatsappWebHref || undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!whatsappWebHref} onClick={(event) => { if (!whatsappWebHref) { event.preventDefault(); setError('Enter your full name first to prepare the WhatsApp message.') } }}>Use WhatsApp Web</a><button className="quiet-button" type="button" onClick={cancelRequest} disabled={busy === 'cancel'}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel request'}</button></div>
         </section>
       ) : (
         <section className="plan-offers" aria-labelledby="plan-offers-title">

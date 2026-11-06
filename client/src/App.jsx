@@ -65,6 +65,8 @@ function App() {
   const currentStreak = getCurrentStreak(items)
   const streakAvailable = !authConfigured || historyStatus === 'ready' || historyStatus === 'demo'
   const premiumActive = Boolean(accountAccess?.isAdmin || (accountAccess?.premiumActive && (!accountAccess.expiresAt || Date.parse(accountAccess.expiresAt) > Date.now())))
+  const studentName = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || session?.user?.user_metadata?.display_name || ''
+  const studentEmail = session?.user?.email || ''
 
   useEffect(() => {
     getHealth().then((health) => {
@@ -395,6 +397,7 @@ function App() {
                   )}
                   {authConfigured
                     ? <div className="profile-menu-actions">
+                      {accountAccess?.isAdmin && <button className="profile-menu-change-password" type="button" onClick={() => { setProfileOpen(false); navigatePage('admin') }}><Icon name="check" size={16} />Admin payments<Icon className="profile-menu-action-arrow" name="arrow" size={14} /></button>}
                       <button className="profile-menu-change-password" type="button" onClick={() => { setProfileOpen(false); setAuthError(''); setAuthFlow('password-change') }}><Icon name="history" size={16} />Change password<Icon className="profile-menu-action-arrow" name="arrow" size={14} /></button>
                       <button className="profile-menu-signout" type="button" onClick={handleSignOut}><Icon name="logout" size={16} />Sign out</button>
                     </div>
@@ -414,14 +417,14 @@ function App() {
           {activePage === 'chat' && <ChatPage messages={chatMessages} onMessagesChange={setChatMessages} onNavigate={navigatePage} aiMode={aiMode} accessToken={session?.access_token} learningMode={chatLearningMode} onLearningModeChange={setChatLearningMode} />}
           {activePage === 'summary' && <SummaryPage selectedSummary={selectedSummary} onSave={saveSummary} onToast={setToast} onReset={() => setSelectedSummary(null)} accessToken={session?.access_token} />}
           {activePage === 'quiz' && (authConfigured && !premiumActive && !selectedQuiz
-            ? <PlanPage access={accountAccess} accessStatus={accessStatus} token={session.access_token} onAccessChange={setAccountAccess} usage={aiUsage} />
+            ? <PlanPage access={accountAccess} accessStatus={accessStatus} token={session.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />
             : <QuizPage selectedQuiz={selectedQuiz} topicSeed={quizTopicSeed} onTopicSeedConsumed={() => setQuizTopicSeed(null)} savedItems={items} onSave={saveQuiz} onReset={() => { setSelectedQuiz(null); setQuizTopicSeed(null) }} onToast={setToast} accessToken={session?.access_token} />)}
-          {activePage === 'exam' && (authConfigured && !premiumActive ? <PlanPage access={accountAccess} accessStatus={accessStatus} token={session.access_token} onAccessChange={setAccountAccess} usage={aiUsage} /> : <ExamPreparationPage accessToken={session?.access_token} onNavigate={navigatePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />)}
+          {activePage === 'exam' && (authConfigured && !premiumActive ? <PlanPage access={accountAccess} accessStatus={accessStatus} token={session.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} /> : <ExamPreparationPage accessToken={session?.access_token} onNavigate={navigatePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />)}
           {activePage === 'history' && <HistoryPage items={items} onOpenItem={openItem} onNavigate={navigatePage} />}
           {activePage === 'planner' && <StudyPlanPage accessToken={session?.access_token} onToast={setToast} />}
-          {activePage === 'plans' && <PlanPage access={accountAccess} accessStatus={accessStatus} token={session?.access_token} onAccessChange={setAccountAccess} usage={aiUsage} />}
+          {activePage === 'plans' && <PlanPage access={accountAccess} accessStatus={accessStatus} token={session?.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />}
           {activePage === 'admin' && accountAccess?.isAdmin && <AdminAccessPage token={session?.access_token} onAccessChange={() => window.dispatchEvent(new Event('studymate:access-refresh'))} />}
-          {activePage === 'admin' && !accountAccess?.isAdmin && <PlanPage access={accountAccess} accessStatus={accessStatus} token={session?.access_token} onAccessChange={setAccountAccess} usage={aiUsage} />}
+          {activePage === 'admin' && !accountAccess?.isAdmin && <PlanPage access={accountAccess} accessStatus={accessStatus} token={session?.access_token} studentName={studentName} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />}
         </main>
         <SiteFooter
           onNavigate={navigatePage}
