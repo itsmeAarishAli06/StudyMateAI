@@ -4,7 +4,7 @@ import DocumentImport from '../components/DocumentImport.jsx'
 import { createExamAttempt, getExamAttempts, submitExamAttempt } from '../lib/api.js'
 
 const localStorageKey = 'studymate.examAttempts'
-const questionCounts = [5, 10, 15]
+const questionCounts = [5, 10, 15, 20]
 const durations = [1, 3, 5, 10, 15, 20]
 const difficulties = ['easy', 'standard', 'challenging']
 const difficultyLabels = { easy: 'Easy', standard: 'Standard', challenging: 'Challenging' }
@@ -256,11 +256,11 @@ function ExamPreparationPage({ accessToken, onNavigate, onPracticeTopic, onToast
       <div className="page-kicker"><span className="kicker-dot" /> PREPARE WITH PURPOSE</div>
       <div className="page-title-row exam-title-row">
         <div><h1>Exam preparation.</h1><p className="page-subtitle">Build a timed mock from your syllabus, then turn weak areas into a clear revision plan.</p></div>
-        <span className="tool-count"><Icon name="clock" size={15} /> Up to 15 MCQs</span>
+        <span className="tool-count"><Icon name="clock" size={15} /> Up to 20 MCQs</span>
       </div>
 
       {!activeExam && <>
-        <div className="exam-intro-strip"><span className="exam-intro-icon"><Icon name="spark" size={18} /></span><span><strong>One AI generation. A focused practice exam.</strong><small>Choose up to 15 questions, balanced across your topics. Generate another mock whenever you want; each generation uses one daily AI request.</small></span></div>
+        <div className="exam-intro-strip"><span className="exam-intro-icon"><Icon name="spark" size={18} /></span><span><strong>One AI generation. A focused practice exam.</strong><small>Choose up to 20 questions, balanced across your topics. Generate another mock whenever you want; each generation uses one daily AI request.</small></span></div>
 
         <form className="input-card exam-setup-card" onSubmit={startExam}>
           <div className="exam-form-heading"><span className="exam-form-icon"><Icon name="quiz" size={21} /></span><div><span className="result-overline">SET UP YOUR MOCK EXAM</span><h2>What are you preparing for?</h2><p>Choose your exam details and list the syllabus topics to include.</p></div></div>

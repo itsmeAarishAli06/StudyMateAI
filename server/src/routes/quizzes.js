@@ -2,10 +2,11 @@ import { Router } from 'express'
 import { AppError, validateText } from '../lib/errors.js'
 import { consumeAiDailyRequest } from '../services/aiUsage.js'
 import { createQuiz } from '../services/study.js'
+import { requirePremiumAccess } from '../middleware/requirePremiumAccess.js'
 
 const router = Router()
 
-router.post('/', async (request, response) => {
+router.post('/', requirePremiumAccess, async (request, response) => {
   const sourceType = request.body?.sourceType ?? 'topic'
   if (!['topic', 'notes'].includes(sourceType)) throw new AppError(400, 'VALIDATION_ERROR', 'sourceType must be either "topic" or "notes".')
   const source = sourceType === 'topic'

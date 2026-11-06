@@ -48,6 +48,30 @@ export function getAiDailyUsage(token) {
   return request('/api/ai-usage', undefined, token).then((result) => result.usage)
 }
 
+export function getStudyAccess(token) {
+  return request('/api/access', undefined, token).then((result) => result.access)
+}
+
+export function createPaymentRequest(planKey, token) {
+  return request('/api/access/requests', { planKey }, token).then((result) => result.request)
+}
+
+export function cancelPaymentRequest(id, token) {
+  return request(`/api/access/requests/${encodeURIComponent(id)}`, undefined, token, 'DELETE')
+}
+
+export function getAdminPaymentRequests(token) {
+  return request('/api/admin/payment-requests', undefined, token).then((result) => result.requests)
+}
+
+export function reviewAdminPaymentRequest(id, review, token) {
+  return request(`/api/admin/payment-requests/${encodeURIComponent(id)}/review`, review, token)
+}
+
+export function revokeAdminStudyAccess(userId, note, token) {
+  return request(`/api/admin/access/${encodeURIComponent(userId)}/revoke`, { note }, token)
+}
+
 function notifyAiUsageRefresh() {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('studymate:ai-usage-refresh'))
 }

@@ -3,7 +3,7 @@ import Icon from './components/Icon.jsx'
 import BrandMark from './components/BrandMark.jsx'
 import SiteFooter from './components/SiteFooter.jsx'
 import Sidebar from './components/Sidebar.jsx'
-import { createStudyItem, getAiDailyUsage, getHealth, getStudyItems } from './lib/api.js'
+import { createStudyItem, getAiDailyUsage, getHealth, getStudyAccess, getStudyItems } from './lib/api.js'
 import { authConfigured, consumePasswordRecovery, getSession, requestPasswordReset, signIn, signOut, signUp, updatePassword } from './lib/auth.js'
 import { getPasswordStrength } from './lib/passwordStrength.js'
 import { getCurrentStreak } from './lib/progress.js'
@@ -14,6 +14,8 @@ import HistoryPage from './pages/HistoryPage.jsx'
 import QuizPage from './pages/QuizPage.jsx'
 import SummaryPage from './pages/SummaryPage.jsx'
 import StudyPlanPage from './pages/StudyPlanPage.jsx'
+import PlanPage from './pages/PlanPage.jsx'
+import AdminAccessPage from './pages/AdminAccessPage.jsx'
 import './App.css'
 
 const pageNames = {
@@ -24,6 +26,8 @@ const pageNames = {
   exam: 'Exam preparation',
   history: 'Study history',
   planner: 'Study planner',
+  plans: 'Plan & access',
+  admin: 'Admin payments',
 }
 
 function loadSavedItems() {
@@ -55,9 +59,12 @@ function App() {
   const [aiMode, setAiMode] = useState('demo')
   const [aiUsage, setAiUsage] = useState(null)
   const [aiUsageStatus, setAiUsageStatus] = useState('idle')
+  const [accountAccess, setAccountAccess] = useState(authConfigured ? null : { isAdmin: false, planKey: 'free', premiumActive: false, dailyLimit: 10, pendingRequest: null })
+  const [accessStatus, setAccessStatus] = useState(authConfigured ? 'loading' : 'ready')
   const [historyStatus, setHistoryStatus] = useState(authConfigured ? 'loading' : 'demo')
   const currentStreak = getCurrentStreak(items)
   const streakAvailable = !authConfigured || historyStatus === 'ready' || historyStatus === 'demo'
+  const premiumActive = Boolean(accountAccess?.isAdmin || (accountAccess?.premiumActive && (!accountAccess.expiresAt || Date.parse(accountAccess.expiresAt) > Date.now())))
 
   useEffect(() => {
     getHealth().then((health) => {
@@ -102,6 +109,42 @@ function App() {
       setAuthError(error.message)
     })
     return () => { active = false }
+  }, [session?.access_token])
+
+  useEffect(() => {
+    const token = session?.access_token
+    if (!authConfigured || !token) {
+      setAccountAccess({ isAdmin: false, planKey: 'free', premiumActive: false, dailyLimit: 10, pendingRequest: null })
+      setAccessStatus('ready')
+      return undefined
+    }
+
+    let active = true
+    async function refreshAccess() {
+      setAccessStatus((status) => status === 'ready' ? 'refreshing' : 'loading')
+      try {
+        const result = await getStudyAccess(token)
+        if (!active) return
+        setAccountAccess(result)
+        setAccessStatus('ready')
+        window.dispatchEvent(new Event('studymate:ai-usage-refresh'))
+      } catch {
+        if (!active) return
+        setAccessStatus('error')
+      }
+    }
+    const refresh = () => refreshAccess()
+    const refreshOnVisible = () => { if (document.visibilityState === 'visible') refreshAccess() }
+    window.addEventListener('studymate:access-refresh', refresh)
+    document.addEventListener('visibilitychange', refreshOnVisible)
+    const timer = window.setInterval(refreshAccess, 60_000)
+    refreshAccess()
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener('studymate:access-refresh', refresh)
+      document.removeEventListener('visibilitychange', refreshOnVisible)
+    }
   }, [session?.access_token])
 
   useEffect(() => {
@@ -184,6 +227,18 @@ function App() {
     setSelectedQuiz(null)
     setQuizTopicSeed({ topic, id: crypto.randomUUID() })
     setActivePage('quiz')
+  }
+
+  function navigatePage(page) {
+    if (authConfigured && ['quiz', 'exam'].includes(page) && !premiumActive) {
+      setActivePage('plans')
+      return
+    }
+    if (page === 'admin' && !accountAccess?.isAdmin) {
+      setActivePage('plans')
+      return
+    }
+    setActivePage(page)
   }
 
   async function saveSummary(summary) {
@@ -273,7 +328,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar activePage={activePage} onNavigate={setActivePage} aiMode={apiStatus === 'offline' ? 'offline' : aiMode} />
+      <Sidebar activePage={activePage} onNavigate={navigatePage} aiMode={apiStatus === 'offline' ? 'offline' : aiMode} isAdmin={Boolean(accountAccess?.isAdmin)} premiumActive={premiumActive || !authConfigured} />
       <div className="workspace">
         <header className="workspace-topbar">
           <div className="mobile-brand"><span className="brand-symbol"><BrandMark className="brand-mark-graphic" /></span><span className="brand-name">StudyMate<span>AI</span></span></div>
@@ -288,7 +343,7 @@ function App() {
               title={streakAvailable
                 ? `${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} based on days you save a summary or quiz. Open your progress dashboard.`
                 : 'Your study streak appears when saved history is available.'}
-              onClick={() => setActivePage('home')}
+              onClick={() => navigatePage('home')}
             >
               <Icon name="flame" size={19} className={`streak-flame${streakAvailable && currentStreak > 0 ? ' is-burning' : ''}`} />
               <strong>{streakAvailable ? currentStreak : '—'}</strong>
@@ -355,16 +410,21 @@ function App() {
         {!authConfigured && <div className="demo-history-banner" role="status">Demo mode: history is saved in this browser. Add Supabase settings to enable your private account history.</div>}
 
         <main className="main-content" key={activePage}>
-          {activePage === 'home' && <Dashboard savedItems={items} onNavigate={setActivePage} onOpenItem={openItem} />}
-          {activePage === 'chat' && <ChatPage messages={chatMessages} onMessagesChange={setChatMessages} onNavigate={setActivePage} aiMode={aiMode} accessToken={session?.access_token} learningMode={chatLearningMode} onLearningModeChange={setChatLearningMode} />}
+          {activePage === 'home' && <Dashboard savedItems={items} onNavigate={navigatePage} onOpenItem={openItem} />}
+          {activePage === 'chat' && <ChatPage messages={chatMessages} onMessagesChange={setChatMessages} onNavigate={navigatePage} aiMode={aiMode} accessToken={session?.access_token} learningMode={chatLearningMode} onLearningModeChange={setChatLearningMode} />}
           {activePage === 'summary' && <SummaryPage selectedSummary={selectedSummary} onSave={saveSummary} onToast={setToast} onReset={() => setSelectedSummary(null)} accessToken={session?.access_token} />}
-          {activePage === 'quiz' && <QuizPage selectedQuiz={selectedQuiz} topicSeed={quizTopicSeed} onTopicSeedConsumed={() => setQuizTopicSeed(null)} savedItems={items} onSave={saveQuiz} onReset={() => { setSelectedQuiz(null); setQuizTopicSeed(null) }} onToast={setToast} accessToken={session?.access_token} />}
-          {activePage === 'exam' && <ExamPreparationPage accessToken={session?.access_token} onNavigate={setActivePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />}
-          {activePage === 'history' && <HistoryPage items={items} onOpenItem={openItem} onNavigate={setActivePage} />}
+          {activePage === 'quiz' && (authConfigured && !premiumActive && !selectedQuiz
+            ? <PlanPage access={accountAccess} accessStatus={accessStatus} token={session.access_token} onAccessChange={setAccountAccess} usage={aiUsage} />
+            : <QuizPage selectedQuiz={selectedQuiz} topicSeed={quizTopicSeed} onTopicSeedConsumed={() => setQuizTopicSeed(null)} savedItems={items} onSave={saveQuiz} onReset={() => { setSelectedQuiz(null); setQuizTopicSeed(null) }} onToast={setToast} accessToken={session?.access_token} />)}
+          {activePage === 'exam' && (authConfigured && !premiumActive ? <PlanPage access={accountAccess} accessStatus={accessStatus} token={session.access_token} onAccessChange={setAccountAccess} usage={aiUsage} /> : <ExamPreparationPage accessToken={session?.access_token} onNavigate={navigatePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />)}
+          {activePage === 'history' && <HistoryPage items={items} onOpenItem={openItem} onNavigate={navigatePage} />}
           {activePage === 'planner' && <StudyPlanPage accessToken={session?.access_token} onToast={setToast} />}
+          {activePage === 'plans' && <PlanPage access={accountAccess} accessStatus={accessStatus} token={session?.access_token} onAccessChange={setAccountAccess} usage={aiUsage} />}
+          {activePage === 'admin' && accountAccess?.isAdmin && <AdminAccessPage token={session?.access_token} onAccessChange={() => window.dispatchEvent(new Event('studymate:access-refresh'))} />}
+          {activePage === 'admin' && !accountAccess?.isAdmin && <PlanPage access={accountAccess} accessStatus={accessStatus} token={session?.access_token} onAccessChange={setAccountAccess} usage={aiUsage} />}
         </main>
         <SiteFooter
-          onNavigate={setActivePage}
+          onNavigate={navigatePage}
           linkedinUrl="https://www.linkedin.com/in/aarish-ali-a20704367/"
           portfolioUrl="https://aarishali.infinityfreeapp.com/"
           contactEmail="itsmeaarish06@gmail.com"

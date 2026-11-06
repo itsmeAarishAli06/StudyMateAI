@@ -5,9 +5,10 @@ import { getSharedAiRateLimiter } from '../middleware/rateLimit.js'
 import { consumeAiDailyRequest } from '../services/aiUsage.js'
 import { hasAiProvider } from '../services/ai.js'
 import { createMockExam } from '../services/study.js'
+import { requirePremiumAccess } from '../middleware/requirePremiumAccess.js'
 
 const router = Router()
-const questionCounts = new Set([5, 10, 15])
+const questionCounts = new Set([5, 10, 15, 20])
 const durations = new Set([1, 3, 5, 10, 15, 20])
 const difficulties = new Set(['easy', 'standard', 'challenging'])
 const selectFields = 'id,title,exam_date,topics,format,question_count,duration_minutes,difficulty,questions,answers,result,status,started_at,expires_at,submitted_at,created_at'
@@ -124,7 +125,7 @@ router.get('/', requireSupabaseUser, async (request, response, next) => {
   } catch (error) { next(error) }
 })
 
-router.post('/', (request, response, next) => getSharedAiRateLimiter()(request, response, next), requireAiAccount, async (request, response, next) => {
+router.post('/', (request, response, next) => getSharedAiRateLimiter()(request, response, next), requireAiAccount, requirePremiumAccess, async (request, response, next) => {
   const body = request.body || {}
   const title = typeof body.title === 'string' ? body.title.trim() : ''
   const topics = cleanTopics(body.topics)
@@ -138,7 +139,7 @@ router.post('/', (request, response, next) => getSharedAiRateLimiter()(request, 
   const minimumExamDate = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
   if (!validDate(examDate) || examDate < minimumExamDate) throw new AppError(400, 'VALIDATION_ERROR', 'Choose today or a future exam date.')
   if (!topics) throw new AppError(400, 'VALIDATION_ERROR', 'Add 1 to 15 unique syllabus topics, each up to 120 characters.')
-  if (!questionCounts.has(questionCount)) throw new AppError(400, 'VALIDATION_ERROR', 'Choose 5, 10, or 15 MCQs per mock exam.')
+  if (!questionCounts.has(questionCount)) throw new AppError(400, 'VALIDATION_ERROR', 'Choose 5, 10, 15, or 20 MCQs per mock exam.')
   if (questionCount < topics.length) throw new AppError(400, 'VALIDATION_ERROR', 'Choose at least as many questions as syllabus topics so every topic can be covered.')
   if (!durations.has(durationMinutes)) throw new AppError(400, 'VALIDATION_ERROR', 'Choose 1, 3, 5, 10, 15, or 20 minutes.')
   if (!difficulties.has(difficulty)) throw new AppError(400, 'VALIDATION_ERROR', 'Choose easy, standard, or challenging difficulty.')

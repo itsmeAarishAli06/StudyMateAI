@@ -9,6 +9,8 @@ export const navigationItems = [
   { id: 'exam', label: 'Exam preparation', icon: 'clock' },
   { id: 'planner', label: 'Study planner', icon: 'calendar' },
   { id: 'history', label: 'Study history', icon: 'history' },
+  { id: 'plans', label: 'Plan & access', icon: 'bolt' },
+  { id: 'admin', label: 'Admin payments', icon: 'check' },
 ]
 
 const mobileLabels = {
@@ -19,10 +21,12 @@ const mobileLabels = {
   exam: 'Exam',
   planner: 'Plan',
   history: 'History',
+  plans: 'Plans',
+  admin: 'Admin',
 }
 
-function NavItems({ activePage, onNavigate, mobile = false }) {
-  return navigationItems.map((item) => (
+function NavItems({ activePage, onNavigate, mobile = false, isAdmin = false, premiumActive = false }) {
+  return navigationItems.filter((item) => item.id !== 'admin' || isAdmin).map((item) => (
     <button
       className={`nav-item ${activePage === item.id ? 'active' : ''}`}
       key={item.id}
@@ -34,11 +38,12 @@ function NavItems({ activePage, onNavigate, mobile = false }) {
       <Icon name={item.icon} size={18} />
       <span>{mobile ? mobileLabels[item.id] : item.label}</span>
       {item.id === 'exam' && !mobile && <span className="nav-tag">NEW</span>}
+      {['quiz', 'exam'].includes(item.id) && !premiumActive && !mobile && <span className="nav-tag premium-nav-tag">PREMIUM</span>}
     </button>
   ))
 }
 
-function Sidebar({ activePage, onNavigate, aiMode = 'demo' }) {
+function Sidebar({ activePage, onNavigate, aiMode = 'demo', isAdmin = false, premiumActive = false }) {
   return (
     <>
       <aside className="sidebar">
@@ -49,7 +54,7 @@ function Sidebar({ activePage, onNavigate, aiMode = 'demo' }) {
 
         <div className="sidebar-label">WORKSPACE</div>
         <nav className="main-nav" aria-label="Main navigation">
-          <NavItems activePage={activePage} onNavigate={onNavigate} />
+          <NavItems activePage={activePage} onNavigate={onNavigate} isAdmin={isAdmin} premiumActive={premiumActive} />
         </nav>
 
         <div className="sidebar-spacer" />
@@ -65,8 +70,8 @@ function Sidebar({ activePage, onNavigate, aiMode = 'demo' }) {
         </div>
       </aside>
 
-      <nav className="mobile-nav" aria-label="Main navigation">
-        <NavItems activePage={activePage} onNavigate={onNavigate} mobile />
+      <nav className={`mobile-nav${isAdmin ? ' has-admin' : ''}`} aria-label="Main navigation">
+        <NavItems activePage={activePage} onNavigate={onNavigate} isAdmin={isAdmin} premiumActive={premiumActive} mobile />
       </nav>
     </>
   )
