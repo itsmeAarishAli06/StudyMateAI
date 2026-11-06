@@ -2,11 +2,18 @@ import { useState } from 'react'
 import Icon from '../components/Icon.jsx'
 import { cancelPaymentRequest, createPaymentRequest } from '../lib/api.js'
 
-const whatsappNumber = '923172873743'
+const whatsappLocalNumber = '03172873743'
+const whatsappCountryCode = '92'
+const whatsappNumber = `${whatsappCountryCode}${whatsappLocalNumber.replace(/\D/g, '').replace(/^0/, '')}`
 
 function paymentMessage(paymentRequest) {
   const planName = paymentRequest.planKey === 'weekly' ? '7-day Premium' : '30-day Premium'
   return `Hello StudyMate, I want to activate the ${planName} plan (Rs ${paymentRequest.amountPkr}). My request code is ${paymentRequest.requestCode}. Please share the payment instructions.`
+}
+
+function whatsappLink(paymentRequest) {
+  const message = encodeURIComponent(paymentMessage(paymentRequest))
+  return `https://wa.me/${whatsappNumber}?text=${message}`
 }
 
 function PlanPage({ access, accessStatus, token, onAccessChange, usage }) {
@@ -19,10 +26,10 @@ function PlanPage({ access, accessStatus, token, onAccessChange, usage }) {
     try {
       const paymentRequest = await createPaymentRequest(planKey, token)
       onAccessChange((current) => ({ ...current, pendingRequest: paymentRequest }))
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(paymentMessage(paymentRequest))}`
-      // Navigate the current tab after the request resolves. Unlike window.open
-      // after an async call, this is not blocked as a popup and works on mobile.
-      window.location.assign(whatsappUrl)
+      // Use WhatsApp's official Click to Chat endpoint. If the browser does not
+      // hand off automatically after the API call, the pending screen below
+      // exposes the same URL as a normal user-clicked link.
+      window.location.href = whatsappLink(paymentRequest)
     } catch (requestError) {
       setError(requestError.message)
       setBusy('')
@@ -44,9 +51,7 @@ function PlanPage({ access, accessStatus, token, onAccessChange, usage }) {
   }
 
   const pending = access?.pendingRequest
-  const whatsappHref = pending
-    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(paymentMessage(pending))}`
-    : ''
+  const whatsappHref = pending ? whatsappLink(pending) : ''
 
   return (
     <div className="page workspace-page plans-page">
@@ -84,8 +89,8 @@ function PlanPage({ access, accessStatus, token, onAccessChange, usage }) {
       {pending ? (
         <section className="payment-pending-card" aria-labelledby="payment-pending-title">
           <div className="payment-pending-heading"><span className="pending-mark"><Icon name="clock" size={18} /></span><span><h2 id="payment-pending-title">Your request is ready</h2><p>Request code <strong>{pending.requestCode}</strong> · {pending.planKey === 'weekly' ? '7 days' : '30 days'} · Rs {pending.amountPkr}</p></span></div>
-          <ol className="payment-steps"><li>Open WhatsApp and send your request code.</li><li>We’ll reply with payment instructions.</li><li>After you pay, send the transaction reference. Access starts after we verify it.</li></ol>
-          <div className="payment-request-actions"><a className="button button-primary" href={whatsappHref}><Icon name="send" size={15} /> Continue in WhatsApp</a><button className="quiet-button" type="button" onClick={cancelRequest} disabled={busy === 'cancel'}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel request'}</button></div>
+          <ol className="payment-steps"><li>Open WhatsApp and send the drafted request.</li><li>We’ll reply with payment instructions.</li><li>After you pay, send the transaction reference. Access starts after we verify it.</li></ol>
+          <div className="payment-request-actions"><a className="button button-primary" href={whatsappHref} target="_blank" rel="noopener noreferrer"><Icon name="send" size={15} /> Open WhatsApp</a><button className="quiet-button" type="button" onClick={cancelRequest} disabled={busy === 'cancel'}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel request'}</button></div>
         </section>
       ) : (
         <section className="plan-offers" aria-labelledby="plan-offers-title">
