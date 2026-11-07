@@ -1678,6 +1678,75 @@ body { background: #f3f7f2; }
 .auth-frame-signup .auth-preview { margin: 0 auto; }
 .auth-frame-signup .auth-story-foot { margin-top: 0; }
 
+/* Shared, high-contrast popup feedback for forms across the app. */
+.form-error,
+.plan-error,
+.auth-success,
+.admin-success,
+.voice-input-error {
+  position: fixed;
+  z-index: 1000;
+  right: auto;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 32px));
+  box-sizing: border-box;
+  margin: 0;
+  padding: 14px 17px;
+  border: 1px solid #e4bdb5;
+  border-radius: 14px;
+  background: #fff8f6;
+  box-shadow: 0 16px 42px rgba(50, 38, 34, .2), 0 3px 10px rgba(50, 38, 34, .08);
+  color: #77382f;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  animation: form-feedback-in .22s cubic-bezier(.2,.8,.2,1) both;
+}
+.form-error,
+.plan-error,
+.voice-input-error { display: flex; align-items: center; gap: 10px; }
+.form-error > svg { flex: 0 0 auto; color: #b84f43; }
+.form-error > button,
+.plan-error > button {
+  flex: 0 0 auto;
+  margin-left: 5px;
+  color: #853f35;
+}
+.auth-success,
+.admin-success {
+  border-color: #b8d8bd;
+  background: #f2fbf3;
+  color: #285b36;
+}
+.admin-success { display: flex; align-items: center; gap: 9px; }
+.admin-success svg { flex: 0 0 auto; color: #367849; }
+@keyframes form-feedback-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (max-width: 600px) {
+  .form-error,
+  .plan-error,
+  .auth-success,
+  .admin-success,
+  .voice-input-error {
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 24px);
+    padding: 13px 14px;
+    font-size: 13px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .form-error,
+  .plan-error,
+  .auth-success,
+  .admin-success,
+  .voice-input-error { animation: none; }
+}
+
 /* Compact streak shortcut in the workspace navigation. */
 .study-streak-quick { min-height: 39px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; border: 1px solid #eee4d4; border-radius: 11px; background: linear-gradient(145deg, #fffaf2, #fff5e8); color: #875b2a; font: inherit; cursor: pointer; white-space: nowrap; transition: transform .17s ease, border-color .17s ease, background .17s ease, box-shadow .17s ease; }
 .study-streak-quick > svg { color: #b48343; transition: transform .2s ease, color .2s ease; }
