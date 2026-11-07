@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from '../components/Icon.jsx'
 import { getStudentProfile, updateStudentProfile } from '../lib/api.js'
 
-function ProfilePage({ token, profile: initialProfile, onProfileUpdated }) {
+function ProfilePage({ token, profile: initialProfile, onProfileUpdated, onProfileSaved, returnToPlan = '' }) {
   const [profile, setProfile] = useState(initialProfile || null)
   const [fullName, setFullName] = useState(initialProfile?.fullName || '')
   const [className, setClassName] = useState(initialProfile?.className || '')
@@ -59,6 +59,7 @@ function ProfilePage({ token, profile: initialProfile, onProfileUpdated }) {
       setWhatsappPhone(next.whatsappPhone)
       setWhatsappSame(next.phone === next.whatsappPhone)
       onProfileUpdated?.(next)
+      onProfileSaved?.(next)
       setNotice('Your student details have been saved.')
     } catch (saveError) {
       setError(saveError.message || 'Could not save your profile.')
@@ -71,6 +72,7 @@ function ProfilePage({ token, profile: initialProfile, onProfileUpdated }) {
     <div className="page workspace-page profile-page">
       <div className="page-kicker"><span className="kicker-dot" /> YOUR ACCOUNT DETAILS</div>
       <div className="page-title-row"><div><h1>My profile.</h1><p className="page-subtitle">Keep your contact details current so StudyMate can identify your account and payment requests.</p></div></div>
+      {returnToPlan && <div className="profile-plan-notice" role="status"><Icon name="briefcase" size={18} /><span><strong>Complete this profile to continue your Premium request.</strong><small>Enter your full name, class or grade, phone number, and WhatsApp number, then save. You’ll return to Plan &amp; access to continue with the {returnToPlan === 'weekly' ? '7-day' : '30-day'} plan.</small></span></div>}
       {status === 'loading' && <div className="history-loading-banner" role="status">Loading your profile…</div>}
       {error && <div className="plan-error" role="alert">{error}</div>}
       {notice && <div className="admin-success" role="status"><Icon name="check" size={15} />{notice}</div>}
@@ -86,7 +88,7 @@ function ProfilePage({ token, profile: initialProfile, onProfileUpdated }) {
         <small className="profile-phone-hint">Enter the country code and number, for example +923001234567.</small>
         <label className="signup-same-number"><input type="checkbox" checked={whatsappSame} onChange={(event) => setWhatsappSame(event.target.checked)} /><span>Use this as my WhatsApp number too</span></label>
         {!whatsappSame && <><label className="field-label" htmlFor="profile-whatsapp">WhatsApp number</label><input id="profile-whatsapp" className="text-input" type="tel" value={whatsappPhone} onChange={(event) => setWhatsappPhone(event.target.value)} maxLength={24} placeholder="+923001234567" required /></>}
-        <button className="button button-primary profile-save-button" type="submit" disabled={busy}>{busy ? <><span className="button-spinner" /> Saving…</> : <><Icon name="save" size={15} /> Save profile</>}</button>
+        <button className="button button-primary profile-save-button" type="submit" disabled={busy}>{busy ? <><span className="button-spinner" /> Saving…</> : <><Icon name="save" size={15} /> {returnToPlan ? 'Save profile & return to plans' : 'Save profile'}</>}</button>
       </form>}
       {profile?.updatedAt && <p className="profile-updated-note">Last updated {new Date(profile.updatedAt).toLocaleString()}</p>}
     </div>

@@ -29,18 +29,23 @@ function whatsappWebLink(paymentRequest, studentName, studentEmail) {
   return `https://web.whatsapp.com/send?phone=${whatsappNumber}&text=${message}`
 }
 
-function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNavigate, token, studentName = '', studentEmail = '', onAccessChange, usage }) {
+function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNavigate, token, studentProfile = null, studentName = '', studentEmail = '', onAccessChange, usage, onToast }) {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [accessDialogDismissed, setAccessDialogDismissed] = useState(false)
   const cleanStudentName = studentName.trim().replace(/\s+/g, ' ')
   const hasStudentName = cleanStudentName.length >= 2
+  const hasCompleteProfile = Boolean(studentProfile?.complete)
   const expiryDate = access?.expiresAt ? new Date(access.expiresAt) : null
   const validExpiryDate = expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate : null
   const formattedExpiry = validExpiryDate?.toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })
 
   async function startRequest(planKey) {
-    if (!hasStudentName) return
+    if (!hasCompleteProfile) {
+      onToast?.('Complete your student profile first. Add your full name, class or grade, phone, and WhatsApp number. After saving, you will return here to continue.')
+      onNavigate?.('profile', { returnToPlan: planKey })
+      return
+    }
     setBusy(planKey)
     setError('')
     try {
@@ -62,6 +67,12 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
       // when it is triggered by JavaScript after awaiting a network request.
       setBusy('')
     } catch (requestError) {
+      if (requestError.code === 'PROFILE_INCOMPLETE') {
+        onToast?.(requestError.message)
+        onNavigate?.('profile', { returnToPlan: planKey })
+        setBusy('')
+        return
+      }
       setError(requestError.message)
       setBusy('')
     }
@@ -82,10 +93,10 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
   }
 
   const pending = access?.pendingRequest
-  const whatsappHref = pending && hasStudentName
+  const whatsappHref = pending && hasCompleteProfile && hasStudentName
     ? whatsappLink(pending, cleanStudentName, studentEmail)
     : ''
-  const whatsappWebHref = pending && hasStudentName
+  const whatsappWebHref = pending && hasCompleteProfile && hasStudentName
     ? whatsappWebLink(pending, cleanStudentName, studentEmail)
     : ''
 
@@ -132,23 +143,23 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
         <div><span className="plan-feature-check premium-check"><Icon name="spark" size={14} /></span><span><strong>Premium</strong><small>Everything in Free, plus Quiz Maker and Exam Preparation · 30 AI requests daily</small></span></div>
       </section>
 
-      {token && !hasStudentName && <section className="payment-profile-required" role="status">
-        <span><strong>Add your name to your student profile</strong><small>Your saved name and account email will be included in the WhatsApp message, so you don’t need to enter them again here.</small></span>
-        <button className="button button-secondary" type="button" onClick={() => onNavigate?.('profile')}>Open My Profile</button>
+      {token && !hasCompleteProfile && <section className="payment-profile-required" role="status">
+        <span><strong>Complete your student profile before requesting Premium</strong><small>Add your full name, class or grade, phone number, and WhatsApp number. This helps us identify your payment request and contact you. Tap a plan to open your profile; after saving, StudyMate will bring you back here.</small></span>
+        <button className="button button-secondary" type="button" onClick={() => onNavigate?.('profile', { returnToPlan: pending?.planKey || '' })}>Complete profile</button>
       </section>}
 
       {pending ? (
         <section className="payment-pending-card" aria-labelledby="payment-pending-title">
           <div className="payment-pending-heading"><span className="pending-mark"><Icon name="clock" size={18} /></span><span><h2 id="payment-pending-title">Your request is ready</h2><p>Request code <strong>{pending.requestCode}</strong> · {pending.planKey === 'weekly' ? '7 days' : '30 days'} · Rs {pending.amountPkr}</p></span></div>
           <ol className="payment-steps"><li>Tap Open WhatsApp to message +92 317 2873743 with your details and request ID.</li><li>Review the draft, then tap Send. We’ll reply with payment instructions.</li><li>After you pay, send the transaction reference. Access starts after we verify it.</li></ol>
-        <div className="payment-request-actions">{hasStudentName && <><a className="button button-primary" href={whatsappHref} target="_blank" rel="noopener noreferrer"><Icon name="send" size={15} /> Open WhatsApp</a><a className="quiet-button whatsapp-web-link" href={whatsappWebHref} target="_blank" rel="noopener noreferrer">Use WhatsApp Web</a></>}<button className="quiet-button" type="button" onClick={cancelRequest} disabled={busy === 'cancel'}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel request'}</button></div>
+        <div className="payment-request-actions">{hasCompleteProfile && hasStudentName && <><a className="button button-primary" href={whatsappHref} target="_blank" rel="noopener noreferrer"><Icon name="send" size={15} /> Open WhatsApp</a><a className="quiet-button whatsapp-web-link" href={whatsappWebHref} target="_blank" rel="noopener noreferrer">Use WhatsApp Web</a></>}<button className="quiet-button" type="button" onClick={cancelRequest} disabled={busy === 'cancel'}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel request'}</button></div>
         </section>
       ) : (
         <section className="plan-offers" aria-labelledby="plan-offers-title">
           <div className="section-heading"><div><h2 id="plan-offers-title">Choose Premium access</h2><p>Pay manually through WhatsApp. Your access begins after payment verification.</p></div></div>
           <div className="plan-offer-grid">
-            <article className="plan-offer-card"><span className="offer-duration">7 DAYS</span><h3>Weekly</h3><p className="offer-price"><strong>Rs 200</strong><span>one time</span></p><ul><li><Icon name="check" size={14} /> 30 AI requests each day</li><li><Icon name="check" size={14} /> Quiz Maker and Exam Preparation</li><li><Icon name="check" size={14} /> Starts after payment approval</li></ul><button className="button button-secondary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token || !hasStudentName} onClick={() => startRequest('weekly')}>{busy === 'weekly' ? 'Preparing request…' : 'Choose weekly'}</button></article>
-            <article className="plan-offer-card is-featured"><span className="offer-ribbon">SAVE RS 250</span><span className="offer-duration">30 DAYS</span><h3>Monthly</h3><p className="offer-price"><strong>Rs 550</strong><span><s>Rs 800</s> reference price</span></p><ul><li><Icon name="check" size={14} /> 30 AI requests each day</li><li><Icon name="check" size={14} /> Quiz Maker and Exam Preparation</li><li><Icon name="check" size={14} /> Starts after payment approval</li></ul><button className="button button-primary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token || !hasStudentName} onClick={() => startRequest('monthly')}>{busy === 'monthly' ? 'Preparing request…' : 'Choose monthly'}</button></article>
+            <article className="plan-offer-card"><span className="offer-duration">7 DAYS</span><h3>Weekly</h3><p className="offer-price"><strong>Rs 200</strong><span>one time</span></p><ul><li><Icon name="check" size={14} /> 30 AI requests each day</li><li><Icon name="check" size={14} /> Quiz Maker and Exam Preparation</li><li><Icon name="check" size={14} /> Starts after payment approval</li></ul><button className="button button-secondary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={() => startRequest('weekly')}>{busy === 'weekly' ? 'Preparing request…' : hasCompleteProfile ? 'Choose weekly' : 'Complete profile to choose'}</button></article>
+            <article className="plan-offer-card is-featured"><span className="offer-ribbon">SAVE RS 250</span><span className="offer-duration">30 DAYS</span><h3>Monthly</h3><p className="offer-price"><strong>Rs 550</strong><span><s>Rs 800</s> reference price</span></p><ul><li><Icon name="check" size={14} /> 30 AI requests each day</li><li><Icon name="check" size={14} /> Quiz Maker and Exam Preparation</li><li><Icon name="check" size={14} /> Starts after payment approval</li></ul><button className="button button-primary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={() => startRequest('monthly')}>{busy === 'monthly' ? 'Preparing request…' : hasCompleteProfile ? 'Choose monthly' : 'Complete profile to choose'}</button></article>
           </div>
           <p className="plan-payment-note"><Icon name="lightbulb" size={15} /> {token ? 'You’ll contact the StudyMate admin on WhatsApp. StudyMate will never ask for your password, login code, or card details.' : 'Sign in with a StudyMate account to create a payment request. StudyMate will never ask for your password, login code, or card details.'}</p>
         </section>

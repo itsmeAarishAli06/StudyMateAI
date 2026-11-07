@@ -702,6 +702,11 @@ body { background: #f3f7f2; }
 .payment-profile-required strong { color: #5f4a28; font-size: 13px; }
 .payment-profile-required small { color: #74674f; font-size: 12px; line-height: 1.5; }
 .payment-profile-required .button { flex: 0 0 auto; min-height: 36px; padding-inline: 12px; font-size: 12px; }
+.profile-plan-notice { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 16px; padding: 15px 17px; border: 1px solid #d7e5d2; border-radius: 12px; background: linear-gradient(120deg, #f4f9f1, #fbfcf7); color: #38543e; }
+.profile-plan-notice > svg { flex: 0 0 auto; margin-top: 2px; color: #4d8055; }
+.profile-plan-notice > span { display: grid; gap: 4px; }
+.profile-plan-notice strong { color: #2e5036; font-size: 13px; }
+.profile-plan-notice small { color: #5f7161; font-size: 12px; line-height: 1.55; }
 @media (max-width: 560px) { .payment-profile-required { align-items: flex-start; flex-direction: column; } }
 .plan-offers { margin-top: 8px; }
 .plan-offers > .section-heading { margin-bottom: 12px; }

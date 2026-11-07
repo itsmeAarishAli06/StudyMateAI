@@ -71,6 +71,7 @@ function App() {
   const [accessError, setAccessError] = useState('')
   const [studentProfile, setStudentProfile] = useState(null)
   const [profileStatus, setProfileStatus] = useState(authConfigured ? 'idle' : 'ready')
+  const [pendingPlanKey, setPendingPlanKey] = useState('')
   const [historyStatus, setHistoryStatus] = useState(authConfigured ? 'loading' : 'demo')
   const currentStreak = getCurrentStreak(items)
   const streakAvailable = !authConfigured || historyStatus === 'ready' || historyStatus === 'demo'
@@ -270,7 +271,7 @@ function App() {
     setActivePage('quiz')
   }
 
-  function navigatePage(page) {
+  function navigatePage(page, options = {}) {
     if (authConfigured && ['quiz', 'exam'].includes(page) && !premiumActive) {
       setActivePage('plans')
       return
@@ -279,6 +280,7 @@ function App() {
       setActivePage('plans')
       return
     }
+    if (page === 'profile') setPendingPlanKey(options.returnToPlan || '')
     setActivePage(page)
     setSidebarOpen(false)
   }
@@ -453,7 +455,7 @@ function App() {
         {authConfigured && historyStatus === 'error' && <div className="history-error-banner" role="alert">{authError || 'Study history could not be loaded.'}<button type="button" onClick={() => { setAuthError(''); setHistoryStatus('loading'); getStudyItems(session.access_token).then((saved) => { setItems(saved); setHistoryStatus('ready') }).catch((error) => { setAuthError(error.message); setHistoryStatus('error') }) }}>Retry</button></div>}
         {authConfigured && historyStatus === 'loading' && <div className="history-loading-banner" role="status">Loading your study history…</div>}
         {!authConfigured && <div className="demo-history-banner" role="status">Demo mode: history is saved in this browser. Add Supabase settings to enable your private account history.</div>}
-        {authConfigured && profileStatus === 'ready' && studentProfile && !studentProfile.complete && <div className="profile-completion-banner" role="status"><Icon name="briefcase" size={17} /><span><strong>Finish setting up your student profile.</strong> Add your class and contact details so the admin can identify your payment request.</span><button type="button" onClick={() => navigatePage('profile')}>Complete profile</button></div>}
+        {authConfigured && profileStatus === 'ready' && studentProfile && !studentProfile.complete && <div className="profile-completion-banner" role="status"><Icon name="briefcase" size={17} /><span><strong>Finish setting up your student profile.</strong> Add your class and contact details before requesting Premium access.</span><button type="button" onClick={() => navigatePage('profile')}>Complete profile</button></div>}
         {authConfigured && profileStatus === 'error' && <div className="profile-completion-banner is-error" role="status"><Icon name="alert" size={17} /><span>Student profile details could not be loaded.</span><button type="button" onClick={() => window.dispatchEvent(new Event('studymate:profile-refresh'))}>Retry</button></div>}
 
         <main className="main-content" key={activePage}>
@@ -461,15 +463,25 @@ function App() {
           {activePage === 'chat' && <ChatPage messages={chatMessages} onMessagesChange={setChatMessages} onNavigate={navigatePage} aiMode={aiMode} accessToken={session?.access_token} learningMode={chatLearningMode} onLearningModeChange={setChatLearningMode} />}
           {activePage === 'summary' && <SummaryPage selectedSummary={selectedSummary} onSave={saveSummary} onToast={setToast} onReset={() => setSelectedSummary(null)} accessToken={session?.access_token} />}
           {activePage === 'quiz' && (authConfigured && !premiumActive && !selectedQuiz
-            ? <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session.access_token} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />
+            ? <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session.access_token} studentProfile={studentProfile} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} onToast={setToast} />
             : <QuizPage selectedQuiz={selectedQuiz} topicSeed={quizTopicSeed} onTopicSeedConsumed={() => setQuizTopicSeed(null)} savedItems={items} onSave={saveQuiz} onReset={() => { setSelectedQuiz(null); setQuizTopicSeed(null) }} onToast={setToast} accessToken={session?.access_token} />)}
-          {activePage === 'exam' && (authConfigured && !premiumActive ? <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session.access_token} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} /> : <ExamPreparationPage accessToken={session?.access_token} onNavigate={navigatePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />)}
+          {activePage === 'exam' && (authConfigured && !premiumActive ? <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session.access_token} studentProfile={studentProfile} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} onToast={setToast} /> : <ExamPreparationPage accessToken={session?.access_token} onNavigate={navigatePage} onPracticeTopic={practiceExamWeakTopic} onToast={setToast} />)}
           {activePage === 'history' && <HistoryPage items={items} onOpenItem={openItem} onNavigate={navigatePage} />}
           {activePage === 'planner' && <StudyPlanPage accessToken={session?.access_token} onToast={setToast} />}
-          {activePage === 'profile' && <ProfilePage token={session?.access_token} profile={studentProfile} onProfileUpdated={(profile) => { setStudentProfile(profile); setProfileStatus('ready') }} />}
-          {activePage === 'plans' && <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session?.access_token} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />}
+          {activePage === 'profile' && <ProfilePage token={session?.access_token} profile={studentProfile} returnToPlan={pendingPlanKey} onProfileUpdated={(profile) => { setStudentProfile(profile); setProfileStatus('ready') }} onProfileSaved={(profile) => {
+            setStudentProfile(profile)
+            setProfileStatus('ready')
+            if (pendingPlanKey && profile.complete) {
+              const planLabel = pendingPlanKey === 'weekly' ? '7-day' : '30-day'
+              setPendingPlanKey('')
+              setActivePage('plans')
+              setToast(`Profile saved. Tap “Choose ${planLabel}” below to continue your Premium request.`)
+              setSidebarOpen(false)
+            }
+          }} />}
+          {activePage === 'plans' && <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session?.access_token} studentProfile={studentProfile} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} onToast={setToast} />}
           {activePage === 'admin' && accountAccess?.isAdmin && <AdminAccessPage token={session?.access_token} onAccessChange={() => window.dispatchEvent(new Event('studymate:access-refresh'))} />}
-          {activePage === 'admin' && !accountAccess?.isAdmin && <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session?.access_token} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} />}
+          {activePage === 'admin' && !accountAccess?.isAdmin && <PlanPage access={accountAccess} accessStatus={accessStatus} accessError={accessError} onRetryAccess={() => window.dispatchEvent(new Event('studymate:access-refresh'))} onNavigate={navigatePage} token={session?.access_token} studentProfile={studentProfile} studentName={studentProfile?.fullName || ''} studentEmail={studentEmail} onAccessChange={setAccountAccess} usage={aiUsage} onToast={setToast} />}
         </main>
         <SiteFooter
           onNavigate={navigatePage}
@@ -479,7 +491,7 @@ function App() {
         />
       </div>
 
-      {toast && <div className={`toast-message${toast.startsWith('Please enter your full name') ? ' toast-warning' : ''}`} role="status"><span className="toast-check"><Icon name={toast.startsWith('Please enter your full name') ? 'alert' : 'check'} size={14} /></span>{toast}<button type="button" aria-label="Dismiss message" onClick={() => setToast('')}><Icon name="close" size={15} /></button></div>}
+      {toast && <div className={`toast-message${toast.startsWith('Please enter your full name') || toast.startsWith('Complete your student profile') ? ' toast-warning' : ''}`} role="status"><span className="toast-check"><Icon name={toast.startsWith('Please enter your full name') || toast.startsWith('Complete your student profile') ? 'alert' : 'check'} size={14} /></span>{toast}<button type="button" aria-label="Dismiss message" onClick={() => setToast('')}><Icon name="close" size={15} /></button></div>}
     </div>
   )
 }
