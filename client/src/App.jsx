@@ -366,7 +366,7 @@ function App() {
     setActivePage('home')
   }
 
-  if (authLoading) return <AuthLoading />
+  if (authLoading) return <GlobalLoadingScreen />
   if (authConfigured && ['recovery', 'password-change'].includes(authFlow) && session) return <AuthScreen initialMode="reset" passwordChange={authFlow === 'password-change'} email={session.user.email || ''} error={authError} onSubmit={submitAuth} onRecoveryComplete={() => { setAuthError(''); setAuthFlow('') }} />
   if (authConfigured && !session) return <AuthScreen error={authError} onSubmit={submitAuth} />
 
@@ -496,8 +496,25 @@ function App() {
   )
 }
 
-function AuthLoading() {
-  return <main className="auth-shell"><div className="auth-loading-card" role="status"><span className="auth-brand-mark"><BrandMark className="brand-mark-graphic" /></span><span className="button-spinner" /><h1>Loading your study space</h1><p>Getting everything ready for you.</p></div></main>
+function GlobalLoadingScreen() {
+  return (
+    <main className="global-loading-shell" aria-busy="true">
+      <section className="global-loading-card" role="status" aria-live="polite" aria-label="Loading your StudyMate workspace">
+        <div className="global-loader-art" aria-hidden="true">
+          <span className="global-loader-orbit global-loader-orbit-outer" />
+          <span className="global-loader-orbit global-loader-orbit-inner" />
+          <span className="global-loader-spark global-loader-spark-one"><Icon name="spark" size={15} /></span>
+          <span className="global-loader-spark global-loader-spark-two"><Icon name="notes" size={14} /></span>
+          <span className="global-loader-spark global-loader-spark-three"><Icon name="quiz" size={13} /></span>
+          <span className="global-loader-brand"><BrandMark className="brand-mark-graphic" /></span>
+        </div>
+        <span className="global-loader-kicker"><i /> YOUR STUDY SPACE</span>
+        <h1>Getting things ready</h1>
+        <p>Your learning space is opening.</p>
+        <div className="global-loader-activity" aria-hidden="true"><i /><i /><i /></div>
+      </section>
+    </main>
+  )
 }
 
 export function AuthScreen({ error, onSubmit, initialMode = 'signin', email: initialEmail = '', onRecoveryComplete, passwordChange = false }) {
