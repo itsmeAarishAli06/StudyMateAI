@@ -199,7 +199,7 @@ router.post('/', (request, response, next) => getSharedAiRateLimiter()(request, 
 
 router.post('/:id/submit', requireSupabaseUser, async (request, response, next) => {
   const id = request.params.id
-  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new AppError(400, 'VALIDATION_ERROR', 'Exam attempt ID is invalid.')
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new AppError(400, 'VALIDATION_ERROR', 'Exam attempt ID is invalid.')
   const answers = request.body?.answers
   if (!Array.isArray(answers) || answers.length < 5 || answers.length > 25
     || answers.some((answer) => answer !== null && (!Number.isInteger(answer) || answer < 0 || answer > 3))) {

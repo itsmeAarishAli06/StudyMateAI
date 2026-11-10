@@ -5,6 +5,7 @@ const router = Router()
 const validTypes = new Set(['summary', 'quiz'])
 
 function validateItem(body = {}) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return 'Study item must be a JSON object.'
   if (!validTypes.has(body.type)) return 'Choose a valid study item type.'
   if (typeof body.title !== 'string' || !body.title.trim() || body.title.length > 120) return 'Title must be between 1 and 120 characters.'
   if (body.type === 'summary') {

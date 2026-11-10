@@ -33,7 +33,11 @@ function validateSchedule(schedule, dailyMinutes) {
 function validatePlan(body = {}, partial = false) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) body = {}
   const fields = ['title', 'examDate', 'dailyMinutes', 'topics', 'schedule']
-  if (partial && fields.some((field) => !Object.hasOwn(body, field))) return 'Include all study plan fields when saving schedule changes.'
+  if (fields.some((field) => !Object.hasOwn(body, field))) {
+    return partial
+      ? 'Include all study plan fields when saving schedule changes.'
+      : 'Provide the plan name, exam date, daily study time, topics, and schedule.'
+  }
   if (Object.hasOwn(body, 'title') && (typeof body.title !== 'string' || !body.title.trim() || body.title.length > 100)) return 'Plan name must be between 1 and 100 characters.'
   if (Object.hasOwn(body, 'examDate') && !validDate(body.examDate)) return 'Choose a valid exam date.'
   if (Object.hasOwn(body, 'dailyMinutes') && (!Number.isInteger(body.dailyMinutes) || body.dailyMinutes < 15 || body.dailyMinutes > 240)) return 'Daily study time must be between 15 and 240 minutes.'
@@ -118,7 +122,7 @@ router.post('/', requireSupabaseUser, async (request, response, next) => {
 })
 
 router.patch('/:id', requireSupabaseUser, async (request, response, next) => {
-  if (!/^[0-9a-f-]{36}$/i.test(request.params.id)) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.id)) {
     response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Study plan ID is invalid.' } })
     return
   }
@@ -151,7 +155,7 @@ router.patch('/:id', requireSupabaseUser, async (request, response, next) => {
 })
 
 router.delete('/:id', requireSupabaseUser, async (request, response, next) => {
-  if (!/^[0-9a-f-]{36}$/i.test(request.params.id)) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.id)) {
     response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Study plan ID is invalid.' } })
     return
   }
