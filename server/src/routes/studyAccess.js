@@ -47,6 +47,26 @@ router.post('/requests', requireSupabaseUser, async (request, response) => {
   response.status(201).json({ request: result })
 })
 
+router.post('/friends-requests', requireSupabaseUser, async (request, response) => {
+  const planKey = request.body?.planKey
+  const friendEmails = request.body?.friendEmails
+  if (!['weekly', 'monthly'].includes(planKey)) throw new AppError(400, 'VALIDATION_ERROR', 'Choose the 7-day or 30-day Friends plan.')
+  if (!Array.isArray(friendEmails) || friendEmails.length !== 3 || friendEmails.some((email) => typeof email !== 'string' || email.length > 254)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Enter exactly three friends’ StudyMate account email addresses.')
+  }
+  const normalizedEmails = friendEmails.map((email) => email.trim().toLowerCase())
+  const emailPattern = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i
+  if (normalizedEmails.some((email) => !emailPattern.test(email)) || new Set(normalizedEmails).size !== 3) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Enter three different, valid email addresses.')
+  }
+  await ensureCompleteStudentProfile(request)
+  const result = await callStudyAccessRpc(request, 'create_study_friends_payment_request', {
+    p_plan_key: planKey,
+    p_friend_emails: normalizedEmails,
+  })
+  response.status(201).json({ request: result })
+})
+
 router.delete('/requests/:id', requireSupabaseUser, async (request, response) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.id)) throw new AppError(400, 'VALIDATION_ERROR', 'Payment request ID is invalid.')
   const result = await callStudyAccessRpc(request, 'cancel_study_payment_request', { p_request_id: request.params.id })

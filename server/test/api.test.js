@@ -171,6 +171,106 @@ test('GET /api/ai-usage returns only the verified user daily quota', async () =>
   }
 })
 
+test('Friends Premium request validates the three emails and sends a buyer-scoped RPC payload', async () => {
+  const oldUrl = process.env.SUPABASE_URL
+  const oldKey = process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_URL = 'https://example.supabase.co'
+  process.env.SUPABASE_ANON_KEY = 'public-test-key'
+  let profileReads = 0
+  let rpcPayload
+  const fakeFetch = async (input, init = {}) => {
+    const url = new URL(input)
+    if (url.pathname === '/auth/v1/user') return Response.json({ id: 'buyer-123', email: 'buyer@example.com' })
+    if (url.pathname === '/rest/v1/student_profiles') {
+      profileReads += 1
+      return Response.json([{ full_name: 'Aarish Ali', class_name: '12', phone_e164: '+923001112222', whatsapp_phone_e164: '+923001112222' }])
+    }
+    if (url.pathname === '/rest/v1/rpc/create_study_friends_payment_request') {
+      rpcPayload = JSON.parse(init.body)
+      return Response.json({ id: 'request-id', requestCode: 'SM-TEST123', offerType: 'friends', planKey: rpcPayload.p_plan_key, amountPkr: rpcPayload.p_plan_key === 'weekly' ? 600 : 1650 })
+    }
+    throw new Error(`Unexpected Supabase request: ${url.pathname}`)
+  }
+
+  try {
+    const duplicate = await authorizedRequest('/api/access/friends-requests', {
+      method: 'POST', body: { planKey: 'weekly', friendEmails: ['friend@example.com', 'FRIEND@example.com', 'other@example.com'] }, fakeFetch,
+    })
+    assert.equal(duplicate.status, 400)
+    assert.equal((await duplicate.json()).error.code, 'VALIDATION_ERROR')
+    assert.equal(profileReads, 0)
+
+    const invalidAddress = await authorizedRequest('/api/access/friends-requests', {
+      method: 'POST', body: { planKey: 'weekly', friendEmails: ['not-an-email', 'second@example.com', 'third@example.com'] }, fakeFetch,
+    })
+    assert.equal(invalidAddress.status, 400)
+    assert.equal(profileReads, 0)
+
+    const valid = await authorizedRequest('/api/access/friends-requests', {
+      method: 'POST', body: { planKey: 'monthly', friendEmails: ['one@example.com', 'two@example.com', 'three@example.com'] }, fakeFetch,
+    })
+    assert.equal(valid.status, 201)
+    assert.equal((await valid.json()).request.amountPkr, 1650)
+    assert.deepEqual(rpcPayload, {
+      p_plan_key: 'monthly',
+      p_friend_emails: ['one@example.com', 'two@example.com', 'three@example.com'],
+    })
+    assert.equal(profileReads, 1)
+  } finally {
+    if (oldUrl === undefined) delete process.env.SUPABASE_URL
+    else process.env.SUPABASE_URL = oldUrl
+    if (oldKey === undefined) delete process.env.SUPABASE_ANON_KEY
+    else process.env.SUPABASE_ANON_KEY = oldKey
+  }
+})
+
+test('Friends Premium approval requires an authenticated session and calls the group-only admin RPC', async () => {
+  const oldUrl = process.env.SUPABASE_URL
+  const oldKey = process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_URL = 'https://example.supabase.co'
+  process.env.SUPABASE_ANON_KEY = 'public-test-key'
+  let reviewPayload
+  const fakeFetch = async (input, init = {}) => {
+    const url = new URL(input)
+    if (url.pathname === '/auth/v1/user') return Response.json({ id: 'admin-123', email: 'admin@example.com' })
+    if (url.pathname === '/rest/v1/rpc/admin_review_study_friends_payment_request') {
+      reviewPayload = JSON.parse(init.body)
+      return Response.json({ status: 'approved', offerType: 'friends', grantedCount: 4 })
+    }
+    throw new Error(`Unexpected Supabase request: ${url.pathname}`)
+  }
+
+  try {
+    const unauthorized = await fetch(`${baseUrl}/api/admin/friends-payment-requests/123e4567-e89b-12d3-a456-426614174000/review`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ decision: 'approve' }),
+    })
+    assert.equal(unauthorized.status, 401)
+
+    const approved = await authorizedRequest('/api/admin/friends-payment-requests/123e4567-e89b-12d3-a456-426614174000/review', {
+      method: 'POST', body: { decision: 'approve', transactionReference: 'BANK-REF-456', note: 'Checked in wallet' }, fakeFetch,
+    })
+    assert.equal(approved.status, 200)
+    assert.equal((await approved.json()).result.grantedCount, 4)
+    assert.deepEqual(reviewPayload, {
+      p_request_id: '123e4567-e89b-12d3-a456-426614174000',
+      p_decision: 'approve',
+      p_transaction_reference: 'BANK-REF-456',
+      p_review_note: 'Checked in wallet',
+    })
+
+    const malformed = await authorizedRequest('/api/admin/friends-payment-requests/not-a-uuid/review', {
+      method: 'POST', body: { decision: 'approve' }, fakeFetch,
+    })
+    assert.equal(malformed.status, 400)
+    assert.equal((await malformed.json()).error.code, 'VALIDATION_ERROR')
+  } finally {
+    if (oldUrl === undefined) delete process.env.SUPABASE_URL
+    else process.env.SUPABASE_URL = oldUrl
+    if (oldKey === undefined) delete process.env.SUPABASE_ANON_KEY
+    else process.env.SUPABASE_ANON_KEY = oldKey
+  }
+})
+
 test('AI generation enforces the persistent per-user daily limit and fails closed on quota database errors', async () => {
   const oldUrl = process.env.SUPABASE_URL
   const oldKey = process.env.SUPABASE_ANON_KEY

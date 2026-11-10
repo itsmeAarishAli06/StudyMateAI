@@ -101,3 +101,7 @@ npm test
 ```
 
 The server API tests exercise valid history reads/writes, invalid payloads, missing/invalid sessions, unconfigured Supabase, and database failures using deterministic HTTP mocks. Set Supabase project credentials and apply the migration to verify a live account/database connection.
+
+## Friends Premium
+
+After the existing Premium migrations, run [`supabase/migrations/20261110100000_friends_premium_plan.sql`](supabase/migrations/20261110100000_friends_premium_plan.sql) in the Supabase SQL Editor. The Friends offer costs Rs 600 for 7 days or Rs 1,650 for 30 days. The purchaser enters three different, already-confirmed StudyMate account emails; their own account is included automatically. After the admin verifies payment, one database transaction grants or extends the selected duration for all four accounts. The admin Payment requests page lists the four members and uses the group approval action. Individual members can later be managed from Students.

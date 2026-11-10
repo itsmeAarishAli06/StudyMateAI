@@ -1,13 +1,24 @@
 import { useState } from 'react'
 import Icon from '../components/Icon.jsx'
-import { cancelPaymentRequest, createPaymentRequest, getStudyAccess } from '../lib/api.js'
+import FeedbackToast from '../components/FeedbackToast.jsx'
+import { cancelPaymentRequest, createFriendsPaymentRequest, createPaymentRequest, getStudyAccess } from '../lib/api.js'
 
 const whatsappLocalNumber = '03172873743'
 const whatsappCountryCode = '92'
 const whatsappNumber = `${whatsappCountryCode}${whatsappLocalNumber.replace(/\D/g, '').replace(/^0/, '')}`
+const emailPattern = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i
 
 function paymentMessage(paymentRequest, studentName, studentEmail) {
   const planName = paymentRequest.planKey === 'weekly' ? '7-day Premium' : '30-day Premium'
+  if (paymentRequest.offerType === 'friends') return [
+    'Hello StudyMate, I would like to purchase the Friends Premium plan.',
+    `Plan: Friends Premium · ${paymentRequest.planKey === 'weekly' ? '7 days' : '30 days'} for 4 accounts`,
+    `Purchaser: ${studentName} (${studentEmail})`,
+    `Friend accounts: ${(paymentRequest.recipientEmails || []).filter((email) => email.toLowerCase() !== studentEmail.toLowerCase()).join(', ')}`,
+    `Request ID: ${paymentRequest.requestCode}`,
+    `Total amount: Rs ${paymentRequest.amountPkr} PKR`,
+    'Please share the payment instructions. I will send the transaction reference after payment.',
+  ].join('\n')
   return [
     'Hello StudyMate, I would like to purchase Premium access.',
     `Student name: ${studentName}`,
@@ -32,6 +43,9 @@ function whatsappWebLink(paymentRequest, studentName, studentEmail) {
 function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNavigate, token, studentProfile = null, studentName = '', studentEmail = '', onAccessChange, usage, onToast }) {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [friendEmails, setFriendEmails] = useState(['', '', ''])
+  const [friendsDuration, setFriendsDuration] = useState('weekly')
   const [accessDialogDismissed, setAccessDialogDismissed] = useState(false)
   const cleanStudentName = studentName.trim().replace(/\s+/g, ' ')
   const hasStudentName = cleanStudentName.length >= 2
@@ -39,6 +53,7 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
   const expiryDate = access?.expiresAt ? new Date(access.expiresAt) : null
   const validExpiryDate = expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate : null
   const formattedExpiry = validExpiryDate?.toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })
+  const feedbackTitle = /friend|account email/i.test(error) ? 'Check the friend account emails' : /profile/i.test(error) ? 'Complete your student profile' : 'Your request needs attention'
 
   async function startRequest(planKey) {
     if (!hasCompleteProfile) {
@@ -48,6 +63,7 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
     }
     setBusy(planKey)
     setError('')
+    setNotice('')
     try {
       let paymentRequest
       try {
@@ -78,13 +94,46 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
     }
   }
 
+  async function startFriendsRequest() {
+    if (!hasCompleteProfile) {
+      onToast?.('Complete your student profile first. Add your full name, class or grade, phone, and WhatsApp number. After saving, you will return here to continue.')
+      onNavigate?.('profile', { returnToPlan: 'friends' })
+      return
+    }
+    const normalized = friendEmails.map((email) => email.trim().toLowerCase())
+    if (normalized.some((email) => !emailPattern.test(email)) || new Set(normalized).size !== 3 || normalized.some((email) => email === studentEmail.trim().toLowerCase())) {
+      setError('Enter three different, valid StudyMate account emails. Your own account is included automatically.')
+      return
+    }
+    setBusy('friends')
+    setError('')
+    setNotice('')
+    try {
+      const paymentRequest = await createFriendsPaymentRequest(friendsDuration, normalized, token)
+      onAccessChange((current) => ({ ...current, pendingRequest: paymentRequest }))
+    } catch (requestError) {
+      if (requestError.code === 'REQUEST_PENDING') {
+        try {
+          const latestAccess = await getStudyAccess(token)
+          onAccessChange(latestAccess)
+          setNotice('A payment request is already waiting. We loaded it below; continue with that request or cancel it before starting another.')
+        } catch (refreshError) { setError(refreshError.message) }
+      } else if (requestError.code === 'PROFILE_INCOMPLETE') {
+        onToast?.(requestError.message)
+        onNavigate?.('profile', { returnToPlan: 'friends' })
+      } else setError(requestError.message)
+    } finally { setBusy('') }
+  }
+
   async function cancelRequest() {
     if (!access?.pendingRequest) return
     setBusy('cancel')
     setError('')
+    setNotice('')
     try {
       await cancelPaymentRequest(access.pendingRequest.id, token)
       onAccessChange((current) => ({ ...current, pendingRequest: null }))
+      setNotice('Request canceled. You can now choose an individual or Friends Premium plan.')
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -108,7 +157,8 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
         <span className={`plan-status-pill ${access?.premiumActive || access?.isAdmin ? 'is-premium' : ''}`}><span />{accessStatus === 'loading' ? 'Loading plan' : access?.isAdmin ? 'Admin account' : access?.premiumActive ? 'Premium active' : 'Free plan'}</span>
       </div>
 
-      {error && <div className="plan-error" role="alert">{error}</div>}
+      <FeedbackToast type="error" title={feedbackTitle} message={error} onDismiss={() => setError('')} />
+      <FeedbackToast type="success" title="Request updated" message={notice} onDismiss={() => setNotice('')} />
       {accessStatus === 'error' && !accessDialogDismissed && <div className="access-error-backdrop">
         <section className="access-error-dialog" role="alertdialog" aria-modal="true" aria-labelledby="access-error-title" aria-describedby="access-error-description">
           <button className="access-error-close" type="button" aria-label="Close message" onClick={() => setAccessDialogDismissed(true)}><Icon name="close" size={18} /></button>
@@ -150,8 +200,9 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
 
       {pending ? (
         <section className="payment-pending-card" aria-labelledby="payment-pending-title">
-          <div className="payment-pending-heading"><span className="pending-mark"><Icon name="clock" size={18} /></span><span><h2 id="payment-pending-title">Your request is ready</h2><p>Request code <strong>{pending.requestCode}</strong> · {pending.planKey === 'weekly' ? '7 days' : '30 days'} · Rs {pending.amountPkr}</p></span></div>
-          <ol className="payment-steps"><li>Tap Open WhatsApp to message +92 317 2873743 with your details and request ID.</li><li>Review the draft, then tap Send. We’ll reply with payment instructions.</li><li>After you pay, send the transaction reference. Access starts after we verify it.</li></ol>
+          <div className="payment-pending-heading"><span className="pending-mark"><Icon name="clock" size={18} /></span><span><h2 id="payment-pending-title">Your request is ready</h2><p>{pending.offerType === 'friends' ? 'Friends Premium · 4 accounts' : 'Premium'} · Request <strong>{pending.requestCode}</strong> · {pending.planKey === 'weekly' ? '7 days' : '30 days'} · Rs {pending.amountPkr}</p></span></div>
+          {pending.offerType === 'friends' && <div className="friends-pending-members"><strong>Accounts included</strong><span>{[studentEmail, ...(pending.recipientEmails || []).filter((email) => email.toLowerCase() !== studentEmail.toLowerCase())].join(' · ')}</span><small>All four accounts receive the selected duration after payment verification.</small></div>}
+          <ol className="payment-steps"><li>Tap Open WhatsApp to message +92 317 2873743. The draft includes your request ID{pending.offerType === 'friends' ? ' and all four account emails' : ' and details'}.</li><li>Review the draft, then tap Send. We’ll reply with payment instructions.</li><li>After you pay, send the transaction reference. {pending.offerType === 'friends' ? 'We activate all four accounts together' : 'Your access starts'} after we verify it.</li></ol>
         <div className="payment-request-actions">{hasCompleteProfile && hasStudentName && <><a className="button button-primary" href={whatsappHref} target="_blank" rel="noopener noreferrer"><Icon name="send" size={15} /> Open WhatsApp</a><a className="quiet-button whatsapp-web-link" href={whatsappWebHref} target="_blank" rel="noopener noreferrer">Use WhatsApp Web</a></>}<button className="quiet-button" type="button" onClick={cancelRequest} disabled={busy === 'cancel'}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel request'}</button></div>
         </section>
       ) : (
@@ -161,6 +212,14 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
             <article className="plan-offer-card"><span className="offer-duration">7 DAYS</span><h3>Weekly</h3><p className="offer-price"><strong>Rs 200</strong><span>one time</span></p><ul><li><Icon name="check" size={14} /> 30 AI requests each day</li><li><Icon name="check" size={14} /> Quiz Maker and Exam Preparation</li><li><Icon name="check" size={14} /> Starts after payment approval</li></ul><button className="button button-secondary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={() => startRequest('weekly')}>{busy === 'weekly' ? 'Preparing request…' : hasCompleteProfile ? 'Choose weekly' : 'Complete profile to choose'}</button></article>
             <article className="plan-offer-card is-featured"><span className="offer-ribbon">SAVE RS 250</span><span className="offer-duration">30 DAYS</span><h3>Monthly</h3><p className="offer-price"><strong>Rs 550</strong><span><s>Rs 800</s> reference price</span></p><ul><li><Icon name="check" size={14} /> 30 AI requests each day</li><li><Icon name="check" size={14} /> Quiz Maker and Exam Preparation</li><li><Icon name="check" size={14} /> Starts after payment approval</li></ul><button className="button button-primary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={() => startRequest('monthly')}>{busy === 'monthly' ? 'Preparing request…' : hasCompleteProfile ? 'Choose monthly' : 'Complete profile to choose'}</button></article>
           </div>
+          <section className="friends-plan-card" aria-labelledby="friends-plan-title">
+            <div className="friends-plan-intro"><span className="friends-plan-icon"><Icon name="users" size={21} /></span><div><span className="offer-duration">GROUP OFFER · ONE PAYMENT</span><h3 id="friends-plan-title">Friends Premium</h3><p>Pay for 3 accounts and get Premium for 4 people, including you. Each friend must already have a confirmed StudyMate account.</p></div><span className="friends-save-badge">1 FREE</span></div>
+            <div className="friends-plan-controls">
+              <label className="admin-field">Choose duration<select className="text-input" value={friendsDuration} onChange={(event) => { setFriendsDuration(event.target.value); setError('') }}><option value="weekly">7 days - Rs 600 total</option><option value="monthly">30 days - Rs 1,650 total</option></select></label>
+              <div className="friends-email-fields"><span className="friends-input-label">Enter the three friends' StudyMate login emails</span>{friendEmails.map((email, index) => <label className="admin-field" key={index}>Friend {index + 1} email<input className="text-input" type="email" autoComplete="off" maxLength={254} value={email} onChange={(event) => { setFriendEmails((current) => current.map((value, itemIndex) => itemIndex === index ? event.target.value : value)); setError('') }} placeholder="friend@example.com" /></label>)}<small>Your own account is included automatically. We only accept emails belonging to confirmed StudyMate accounts.</small></div>
+              <div className="friends-plan-summary"><strong>4 accounts</strong><span>One verified payment · same selected plan duration · 30 AI requests daily per member</span><button className="button button-primary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={startFriendsRequest}>{busy === 'friends' ? 'Preparing group request…' : hasCompleteProfile ? `Continue · Rs ${friendsDuration === 'weekly' ? '600' : '1,650'}` : 'Complete profile to continue'}</button></div>
+            </div>
+          </section>
           <p className="plan-payment-note"><Icon name="lightbulb" size={15} /> {token ? 'You’ll contact the StudyMate admin on WhatsApp. StudyMate will never ask for your password, login code, or card details.' : 'Sign in with a StudyMate account to create a payment request. StudyMate will never ask for your password, login code, or card details.'}</p>
         </section>
       )}

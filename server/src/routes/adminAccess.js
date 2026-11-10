@@ -6,8 +6,12 @@ import { callStudyAccessRpc } from '../services/studyAccess.js'
 const router = Router()
 
 router.get('/payment-requests', requireSupabaseUser, async (request, response) => {
-  const result = await callStudyAccessRpc(request, 'admin_list_study_payment_requests')
-  response.json({ requests: result || [] })
+  const [individual, friends] = await Promise.all([
+    callStudyAccessRpc(request, 'admin_list_study_payment_requests'),
+    callStudyAccessRpc(request, 'admin_list_study_friends_payment_requests'),
+  ])
+  response.json({ requests: [...(individual || []).map((item) => ({ ...item, offer_type: 'single' })), ...(friends || [])]
+    .sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || Date.parse(b.created_at) - Date.parse(a.created_at)) })
 })
 
 router.get('/students', requireSupabaseUser, async (request, response) => {
@@ -48,6 +52,22 @@ router.post('/payment-requests/:id/review', requireSupabaseUser, async (request,
     throw new AppError(400, 'VALIDATION_ERROR', 'The transaction reference or note is too long.')
   }
   const result = await callStudyAccessRpc(request, 'admin_review_study_payment_request', {
+    p_request_id: request.params.id,
+    p_decision: decision,
+    p_transaction_reference: transactionReference.trim() || null,
+    p_review_note: note.trim() || null,
+  })
+  response.json({ result })
+})
+
+router.post('/friends-payment-requests/:id/review', requireSupabaseUser, async (request, response) => {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.id)) throw new AppError(400, 'VALIDATION_ERROR', 'Payment request ID is invalid.')
+  const { decision, transactionReference = '', note = '' } = request.body || {}
+  if (!['approve', 'reject'].includes(decision)) throw new AppError(400, 'VALIDATION_ERROR', 'Choose approve or reject.')
+  if (typeof transactionReference !== 'string' || transactionReference.length > 120 || typeof note !== 'string' || note.length > 300) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'The transaction reference or note is too long.')
+  }
+  const result = await callStudyAccessRpc(request, 'admin_review_study_friends_payment_request', {
     p_request_id: request.params.id,
     p_decision: decision,
     p_transaction_reference: transactionReference.trim() || null,

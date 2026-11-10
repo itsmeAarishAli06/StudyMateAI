@@ -58,6 +58,10 @@ export function createPaymentRequest(planKey, token) {
   return request('/api/access/requests', { planKey }, token).then((result) => result.request)
 }
 
+export function createFriendsPaymentRequest(planKey, friendEmails, token) {
+  return request('/api/access/friends-requests', { planKey, friendEmails }, token).then((result) => result.request)
+}
+
 export function cancelPaymentRequest(id, token) {
   return request(`/api/access/requests/${encodeURIComponent(id)}`, undefined, token, 'DELETE')
 }
@@ -68,6 +72,10 @@ export function getAdminPaymentRequests(token) {
 
 export function reviewAdminPaymentRequest(id, review, token) {
   return request(`/api/admin/payment-requests/${encodeURIComponent(id)}/review`, review, token)
+}
+
+export function reviewAdminFriendsPaymentRequest(id, review, token) {
+  return request(`/api/admin/friends-payment-requests/${encodeURIComponent(id)}/review`, review, token)
 }
 
 export function revokeAdminStudyAccess(userId, note, token) {

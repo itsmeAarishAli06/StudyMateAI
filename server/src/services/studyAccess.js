@@ -39,6 +39,7 @@ export async function callStudyAccessRpc(request, functionName, args = {}) {
       throw new AppError(409, 'REQUEST_PENDING', 'You already have a payment request waiting for review.')
     }
     if (code === 'P0002') {
+      if (functionName === 'create_study_friends_payment_request') throw new AppError(400, 'FRIEND_ACCOUNTS_REQUIRED', 'All three friends must already have confirmed StudyMate accounts. Check the email addresses or ask them to sign up and confirm first.')
       if (functionName === 'admin_grant_study_access') throw new AppError(409, 'STUDENT_NOT_ELIGIBLE', 'This account was not found or its email has not been confirmed yet.')
       throw new AppError(404, 'REQUEST_NOT_FOUND', 'That pending payment request could not be found.')
     }
@@ -53,7 +54,9 @@ export async function callStudyAccessRpc(request, functionName, args = {}) {
         ? 'The student directory setup is incomplete. Apply the latest student profile migration in Supabase, then retry.'
         : functionName === 'admin_grant_study_access'
           ? 'Manual Premium grants are not set up yet. Apply the latest admin Premium grant migration in Supabase, then retry.'
-          : 'StudyMate plan setup is incomplete. Apply the manual Premium access migration in Supabase, then retry.'
+          : ['create_study_friends_payment_request', 'admin_list_study_friends_payment_requests', 'admin_review_study_friends_payment_request'].includes(functionName)
+            ? 'Friends Premium is not set up yet. Apply the Friends Premium migration in Supabase, then retry.'
+            : 'StudyMate plan setup is incomplete. Apply the manual Premium access migration in Supabase, then retry.'
       throw new AppError(503, 'ACCESS_SETUP_REQUIRED', migrationMessage)
     }
     console.error(`Study access database RPC ${functionName} failed:`, response.status, code || 'unknown database code', databaseMessage)
