@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Icon from '../components/Icon.jsx'
 import FeedbackToast from '../components/FeedbackToast.jsx'
-import { cancelPaymentRequest, createFriendsPaymentRequest, createPaymentRequest, getStudyAccess } from '../lib/api.js'
+import { cancelPaymentRequest, claimStudyTrial, createFriendsPaymentRequest, createPaymentRequest, getStudyAccess } from '../lib/api.js'
 
 const whatsappLocalNumber = '03172873743'
 const whatsappCountryCode = '92'
@@ -141,6 +141,22 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
     }
   }
 
+  async function startTrial() {
+    setBusy('trial')
+    setError('')
+    setNotice('')
+    try {
+      const updatedAccess = await claimStudyTrial(token)
+      onAccessChange(updatedAccess)
+      window.dispatchEvent(new Event('studymate:ai-usage-refresh'))
+      setNotice('Your 3-day Premium trial is active. It will end automatically; no payment or WhatsApp message is needed.')
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setBusy('')
+    }
+  }
+
   const pending = access?.pendingRequest
   const whatsappHref = pending && hasCompleteProfile && hasStudentName
     ? whatsappLink(pending, cleanStudentName, studentEmail)
@@ -154,7 +170,7 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
       <div className="page-kicker"><span className="kicker-dot" /> SIMPLE PLANS, CLEAR ACCESS</div>
       <div className="page-title-row plan-title-row">
         <div><h1>Plan &amp; access.</h1><p className="page-subtitle">See what you can use and manage Premium activation in a few clear steps.</p></div>
-        <span className={`plan-status-pill ${access?.premiumActive || access?.isAdmin ? 'is-premium' : ''}`}><span />{accessStatus === 'loading' ? 'Loading plan' : access?.isAdmin ? 'Admin account' : access?.premiumActive ? 'Premium active' : 'Free plan'}</span>
+        <span className={`plan-status-pill ${access?.premiumActive || access?.isAdmin ? 'is-premium' : ''}`}><span />{accessStatus === 'loading' ? 'Loading plan' : access?.isAdmin ? 'Admin account' : access?.planKey === 'trial' ? 'Free trial active' : access?.premiumActive ? 'Premium active' : 'Free plan'}</span>
       </div>
 
       <FeedbackToast type="error" title={feedbackTitle} message={error} onDismiss={() => setError('')} />
@@ -175,15 +191,17 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
         <div className="plan-current-icon"><Icon name={access?.premiumActive ? 'spark' : 'book'} size={20} /></div>
         <div className="plan-current-copy">
           <span className="aside-label">YOUR CURRENT PLAN</span>
-          <h2 id="current-plan-title">{accessStatus === 'loading' ? 'Checking your access…' : access?.isAdmin ? 'StudyMate Admin' : access?.premiumActive ? `Premium · ${access.planKey === 'weekly' ? '7-day' : '30-day'} plan` : 'Free plan'}</h2>
+          <h2 id="current-plan-title">{accessStatus === 'loading' ? 'Checking your access…' : access?.isAdmin ? 'StudyMate Admin' : access?.planKey === 'trial' ? '3-day Premium trial' : access?.premiumActive ? `Premium · ${access.planKey === 'weekly' ? '7-day' : '30-day'} plan` : 'Free plan'}</h2>
           <p>{access?.isAdmin
             ? 'Admin access includes all Premium features and 30 daily AI requests with no expiry.'
+            : access?.planKey === 'trial' && access?.premiumActive
+              ? 'Your new-student trial includes Premium features and 30 daily AI requests. It ends automatically and cannot be restarted.'
             : access?.premiumActive
               ? 'Premium features are active on your account.'
               : access?.expiresAt && formattedExpiry
                 ? `Your previous Premium access ended ${formattedExpiry}. You are now on the Free plan.`
                 : 'You are on the Free plan. AI Tutor, Summarizer, Study Planner, and saved study history are available.'}</p>
-          {access?.premiumActive && formattedExpiry && <div className="plan-expiry-highlight"><Icon name="clock" size={17} /><span><strong>Premium access ends</strong><time dateTime={validExpiryDate.toISOString()}>{formattedExpiry}</time></span></div>}
+          {access?.premiumActive && formattedExpiry && <div className="plan-expiry-highlight"><Icon name="clock" size={17} /><span><strong>{access?.planKey === 'trial' ? 'Free trial ends' : 'Premium access ends'}</strong><time dateTime={validExpiryDate.toISOString()}>{formattedExpiry}</time></span></div>}
         </div>
         {usage && <div className="plan-usage"><strong>{usage.remaining}<small> / {usage.dailyLimit}</small></strong><span>AI requests left today</span></div>}
       </section>
@@ -192,6 +210,13 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
         <div><span className="plan-feature-check"><Icon name="check" size={14} /></span><span><strong>Free</strong><small>AI Tutor, Summarizer, Study Planner, and history · 10 AI requests daily</small></span></div>
         <div><span className="plan-feature-check premium-check"><Icon name="spark" size={14} /></span><span><strong>Premium</strong><small>Everything in Free, plus Quiz Maker and Exam Preparation · 30 AI requests daily</small></span></div>
       </section>
+
+      {access?.trial?.eligible && !access?.premiumActive && !access?.isAdmin && <section className="new-student-trial-card" aria-labelledby="new-student-trial-title">
+        <div className="new-student-trial-icon"><Icon name="spark" size={21} /></div>
+        <div className="new-student-trial-copy"><span className="offer-duration">NEW STUDENTS · ONE TIME</span><h2 id="new-student-trial-title">Try Premium free for 3 days</h2><p>Unlock Quiz Maker, Exam Preparation, and 30 AI requests each day. Your trial starts when you tap the button and expires automatically. No payment details or WhatsApp message needed.</p><small>Available once for newly registered accounts with a confirmed email.</small></div>
+        <button className="button button-primary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={startTrial}>{busy === 'trial' ? 'Starting your trial…' : 'Start my free trial'}</button>
+      </section>}
+      {access?.trial?.claimed && !access?.trial?.active && !access?.premiumActive && <p className="trial-ended-note" role="status"><Icon name="clock" size={16} /> Your 3-day free trial has ended. Your account is now on the Free plan; the trial cannot be restarted.</p>}
 
       {token && !hasCompleteProfile && <section className="payment-profile-required" role="status">
         <span><strong>Complete your student profile before requesting Premium</strong><small>Add your full name, class or grade, phone number, and WhatsApp number. This helps us identify your payment request and contact you. Tap a plan to open your profile; after saving, StudyMate will bring you back here.</small></span>
@@ -209,15 +234,15 @@ function PlanPage({ access, accessStatus, accessError = '', onRetryAccess, onNav
         <section className="plan-offers" aria-labelledby="plan-offers-title">
           <div className="section-heading"><div><h2 id="plan-offers-title">Choose Premium access</h2><p>Pay manually through WhatsApp. Your access begins after payment verification.</p></div></div>
           <div className="plan-offer-grid">
-            <article className="plan-offer-card"><span className="offer-duration">7 DAYS</span><h3>Weekly</h3><p className="offer-price"><strong>Rs 200</strong><span>one time</span></p><ul><li><Icon name="check" size={14} /> 30 AI requests each day</li><li><Icon name="check" size={14} /> Quiz Maker and Exam Preparation</li><li><Icon name="check" size={14} /> Starts after payment approval</li></ul><button className="button button-secondary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={() => startRequest('weekly')}>{busy === 'weekly' ? 'Preparing request…' : hasCompleteProfile ? 'Choose weekly' : 'Complete profile to choose'}</button></article>
-            <article className="plan-offer-card is-featured"><span className="offer-ribbon">SAVE RS 250</span><span className="offer-duration">30 DAYS</span><h3>Monthly</h3><p className="offer-price"><strong>Rs 550</strong><span><s>Rs 800</s> reference price</span></p><ul><li><Icon name="check" size={14} /> 30 AI requests each day</li><li><Icon name="check" size={14} /> Quiz Maker and Exam Preparation</li><li><Icon name="check" size={14} /> Starts after payment approval</li></ul><button className="button button-primary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={() => startRequest('monthly')}>{busy === 'monthly' ? 'Preparing request…' : hasCompleteProfile ? 'Choose monthly' : 'Complete profile to choose'}</button></article>
+            <article className="plan-offer-card"><span className="offer-duration">7 DAYS</span><h3>Weekly</h3><p className="offer-price"><strong>Rs 150</strong><span>one time</span></p><ul><li><Icon name="check" size={14} /> 30 AI requests each day</li><li><Icon name="check" size={14} /> Quiz Maker and Exam Preparation</li><li><Icon name="check" size={14} /> Starts after payment approval</li></ul><button className="button button-secondary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={() => startRequest('weekly')}>{busy === 'weekly' ? 'Preparing request…' : hasCompleteProfile ? 'Choose weekly' : 'Complete profile to choose'}</button></article>
+            <article className="plan-offer-card is-featured"><span className="offer-ribbon">SAVE RS 100</span><span className="offer-duration">30 DAYS</span><h3>Monthly</h3><p className="offer-price"><strong>Rs 500</strong><span><s>Rs 600</s> reference price</span></p><ul><li><Icon name="check" size={14} /> 30 AI requests each day</li><li><Icon name="check" size={14} /> Quiz Maker and Exam Preparation</li><li><Icon name="check" size={14} /> Starts after payment approval</li></ul><button className="button button-primary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={() => startRequest('monthly')}>{busy === 'monthly' ? 'Preparing request…' : hasCompleteProfile ? 'Choose monthly' : 'Complete profile to choose'}</button></article>
           </div>
           <section className="friends-plan-card" aria-labelledby="friends-plan-title">
             <div className="friends-plan-intro"><span className="friends-plan-icon"><Icon name="users" size={21} /></span><div><span className="offer-duration">GROUP OFFER · ONE PAYMENT</span><h3 id="friends-plan-title">Friends Premium</h3><p>Pay for 3 accounts and get Premium for 4 people, including you. Each friend must already have a confirmed StudyMate account.</p></div><span className="friends-save-badge">1 FREE</span></div>
             <div className="friends-plan-controls">
-              <label className="admin-field">Choose duration<select className="text-input" value={friendsDuration} onChange={(event) => { setFriendsDuration(event.target.value); setError('') }}><option value="weekly">7 days - Rs 600 total</option><option value="monthly">30 days - Rs 1,650 total</option></select></label>
+              <label className="admin-field">Choose duration<select className="text-input" value={friendsDuration} onChange={(event) => { setFriendsDuration(event.target.value); setError('') }}><option value="weekly">7 days - Rs 450 total</option><option value="monthly">30 days - Rs 1,500 total</option></select></label>
               <div className="friends-email-fields"><span className="friends-input-label">Enter the three friends' StudyMate login emails</span>{friendEmails.map((email, index) => <label className="admin-field" key={index}>Friend {index + 1} email<input className="text-input" type="email" autoComplete="off" maxLength={254} value={email} onChange={(event) => { setFriendEmails((current) => current.map((value, itemIndex) => itemIndex === index ? event.target.value : value)); setError('') }} placeholder="friend@example.com" /></label>)}<small>Your own account is included automatically. We only accept emails belonging to confirmed StudyMate accounts.</small></div>
-              <div className="friends-plan-summary"><strong>4 accounts</strong><span>One verified payment · same selected plan duration · 30 AI requests daily per member</span><button className="button button-primary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={startFriendsRequest}>{busy === 'friends' ? 'Preparing group request…' : hasCompleteProfile ? `Continue · Rs ${friendsDuration === 'weekly' ? '600' : '1,650'}` : 'Complete profile to continue'}</button></div>
+              <div className="friends-plan-summary"><strong>4 accounts</strong><span>Pay for 3 and get 1 free · 30 AI requests daily per member</span><button className="button button-primary" type="button" disabled={Boolean(busy) || accessStatus === 'loading' || !token} onClick={startFriendsRequest}>{busy === 'friends' ? 'Preparing group request…' : hasCompleteProfile ? `Continue · Rs ${friendsDuration === 'weekly' ? '450' : '1,500'}` : 'Complete profile to continue'}</button></div>
             </div>
           </section>
           <p className="plan-payment-note"><Icon name="lightbulb" size={15} /> {token ? 'You’ll contact the StudyMate admin on WhatsApp. StudyMate will never ask for your password, login code, or card details.' : 'Sign in with a StudyMate account to create a payment request. StudyMate will never ask for your password, login code, or card details.'}</p>

@@ -187,7 +187,7 @@ test('Friends Premium request validates the three emails and sends a buyer-scope
     }
     if (url.pathname === '/rest/v1/rpc/create_study_friends_payment_request') {
       rpcPayload = JSON.parse(init.body)
-      return Response.json({ id: 'request-id', requestCode: 'SM-TEST123', offerType: 'friends', planKey: rpcPayload.p_plan_key, amountPkr: rpcPayload.p_plan_key === 'weekly' ? 600 : 1650 })
+      return Response.json({ id: 'request-id', requestCode: 'SM-TEST123', offerType: 'friends', planKey: rpcPayload.p_plan_key, amountPkr: rpcPayload.p_plan_key === 'weekly' ? 450 : 1500 })
     }
     throw new Error(`Unexpected Supabase request: ${url.pathname}`)
   }
@@ -210,12 +210,55 @@ test('Friends Premium request validates the three emails and sends a buyer-scope
       method: 'POST', body: { planKey: 'monthly', friendEmails: ['one@example.com', 'two@example.com', 'three@example.com'] }, fakeFetch,
     })
     assert.equal(valid.status, 201)
-    assert.equal((await valid.json()).request.amountPkr, 1650)
+    assert.equal((await valid.json()).request.amountPkr, 1500)
     assert.deepEqual(rpcPayload, {
       p_plan_key: 'monthly',
       p_friend_emails: ['one@example.com', 'two@example.com', 'three@example.com'],
     })
     assert.equal(profileReads, 1)
+  } finally {
+    if (oldUrl === undefined) delete process.env.SUPABASE_URL
+    else process.env.SUPABASE_URL = oldUrl
+    if (oldKey === undefined) delete process.env.SUPABASE_ANON_KEY
+    else process.env.SUPABASE_ANON_KEY = oldKey
+  }
+})
+
+test('new confirmed accounts can claim a server-checked free trial once', async () => {
+  const oldUrl = process.env.SUPABASE_URL
+  const oldKey = process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_URL = 'https://example.supabase.co'
+  process.env.SUPABASE_ANON_KEY = 'public-test-key'
+  const calls = []
+  const fakeFetch = async (input) => {
+    const url = new URL(input)
+    calls.push(url.pathname)
+    if (url.pathname === '/auth/v1/user') return Response.json({ id: 'new-student', email: 'new@example.com' })
+    if (url.pathname === '/rest/v1/rpc/claim_study_free_trial') return Response.json({ startedAt: '2026-11-10T12:00:00Z', expiresAt: '2026-11-13T12:00:00Z' })
+    if (url.pathname === '/rest/v1/rpc/get_studymate_access') return Response.json([{
+      is_admin: false, plan_key: 'trial', premium_active: true, started_at: '2026-11-10T12:00:00Z',
+      expires_at: '2026-11-13T12:00:00Z', daily_limit: 30, pending_request: null, latest_request: null,
+    }])
+    if (url.pathname === '/rest/v1/rpc/get_study_trial_status') return Response.json([{
+      eligible: false, claimed: true, active: true, started_at: '2026-11-10T12:00:00Z', expires_at: '2026-11-13T12:00:00Z',
+    }])
+    throw new Error(`Unexpected Supabase request: ${url.pathname}`)
+  }
+
+  try {
+    const response = await authorizedRequest('/api/access/trial', { method: 'POST', body: {}, fakeFetch })
+    assert.equal(response.status, 200)
+    const { access } = await response.json()
+    assert.equal(access.planKey, 'trial')
+    assert.equal(access.premiumActive, true)
+    assert.equal(access.dailyLimit, 30)
+    assert.equal(access.trial.active, true)
+    assert.deepEqual(calls, [
+      '/auth/v1/user',
+      '/rest/v1/rpc/claim_study_free_trial',
+      '/rest/v1/rpc/get_studymate_access',
+      '/rest/v1/rpc/get_study_trial_status',
+    ])
   } finally {
     if (oldUrl === undefined) delete process.env.SUPABASE_URL
     else process.env.SUPABASE_URL = oldUrl
@@ -335,6 +378,9 @@ test('chat, summary, and quiz all consume one quota unit after request validatio
     if (url.pathname === '/auth/v1/user') return Response.json({ id: 'user-tools-123' })
     if (url.pathname === '/rest/v1/rpc/get_studymate_access') {
       return Response.json([{ is_admin: true, plan_key: 'admin', premium_active: false, started_at: null, expires_at: null, daily_limit: 30, pending_request: null, latest_request: null }])
+    }
+    if (url.pathname === '/rest/v1/rpc/get_study_trial_status') {
+      return Response.json([{ eligible: false, claimed: false, active: false, started_at: null, expires_at: null }])
     }
     if (url.pathname === '/rest/v1/rpc/consume_ai_daily_request') {
       consumeCalls += 1

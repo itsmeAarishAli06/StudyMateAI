@@ -681,6 +681,15 @@ body { background: #f3f7f2; }
 .plan-current-copy { min-width: 0; flex: 1; }
 .plan-current-copy h2 { margin: 5px 0 4px; color: #2e4435; font-size: 19px; letter-spacing: -.035em; }
 .plan-current-copy p { margin: 0; color: #68796d; font-size: 12px; line-height: 1.55; }
+.new-student-trial-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 17px; margin: 18px 0; padding: clamp(17px, 3vw, 24px); border: 1px solid #c7d9bd; border-radius: 18px; background: radial-gradient(ellipse at 100% 0%, rgba(225, 241, 211, .85), transparent 46%), linear-gradient(135deg, #f8fcf4, #eff6eb); box-shadow: 0 12px 28px rgba(38, 66, 43, .075); }
+.new-student-trial-icon { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid #d2e2c9; border-radius: 15px; background: #e8f2e2; color: #3c774a; }
+.new-student-trial-copy { min-width: 0; }
+.new-student-trial-copy h2 { margin: 5px 0; color: #25432d; font-size: clamp(18px, 2vw, 22px); letter-spacing: -.035em; }
+.new-student-trial-copy p { max-width: 720px; margin: 0 0 6px; color: #52675a; font-size: 13px; line-height: 1.55; }
+.new-student-trial-copy > small { color: #617467; font-size: 11px; }
+.new-student-trial-card > .button { min-width: 180px; justify-content: center; }
+.trial-ended-note { display: flex; align-items: center; gap: 9px; margin: 15px 0; padding: 12px 15px; border: 1px solid #dfe7dc; border-radius: 12px; background: #f8faf7; color: #526457; font-size: 13px; line-height: 1.5; }
+.trial-ended-note svg { flex: 0 0 auto; color: #65806a; }
 .plan-expiry-highlight { width: fit-content; display: inline-flex; align-items: center; gap: 9px; margin-top: 12px; padding: 9px 12px; border: 1px solid #d9e8d4; border-radius: 10px; background: #f2f8ef; color: #4e7749; }
 .plan-expiry-highlight > svg { flex: 0 0 auto; }
 .plan-expiry-highlight > span { display: grid; gap: 2px; }
@@ -1978,6 +1987,7 @@ textarea::placeholder, .auth-input-wrap .text-input::placeholder,
 .admin-friends-members li small, .admin-friends-members > small { color: #5b6e60; font-size: 11px; }
 @media (max-width: 850px) { .friends-plan-controls { grid-template-columns: 1fr 1fr; } .friends-plan-summary { grid-column: 1 / -1; } }
 @media (max-width: 560px) { .friends-plan-intro { grid-template-columns: auto minmax(0, 1fr); gap: 11px; } .friends-save-badge { grid-column: 2; justify-self: start; } .friends-plan-controls { grid-template-columns: 1fr; gap: 13px; } .friends-plan-summary { grid-column: auto; } .admin-friends-members ul { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .new-student-trial-card { grid-template-columns: auto minmax(0, 1fr); gap: 12px; } .new-student-trial-card > .button { grid-column: 1 / -1; width: 100%; } }
 
 @media (max-width: 560px) {
   .exam-answer-review > summary { align-items: flex-start; flex-direction: column; gap: 3px; }

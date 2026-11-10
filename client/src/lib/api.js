@@ -58,6 +58,10 @@ export function createPaymentRequest(planKey, token) {
   return request('/api/access/requests', { planKey }, token).then((result) => result.request)
 }
 
+export function claimStudyTrial(token) {
+  return request('/api/access/trial', {}, token).then((result) => result.access)
+}
+
 export function createFriendsPaymentRequest(planKey, friendEmails, token) {
   return request('/api/access/friends-requests', { planKey, friendEmails }, token).then((result) => result.request)
 }

@@ -4,10 +4,11 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PlanPage from './PlanPage.jsx'
 import AdminAccessPage from './AdminAccessPage.jsx'
-import { createFriendsPaymentRequest, getAdminPaymentRequests, reviewAdminFriendsPaymentRequest } from '../lib/api.js'
+import { claimStudyTrial, createFriendsPaymentRequest, getAdminPaymentRequests, reviewAdminFriendsPaymentRequest } from '../lib/api.js'
 
 vi.mock('../lib/api.js', () => ({
   cancelPaymentRequest: vi.fn(),
+  claimStudyTrial: vi.fn(),
   createFriendsPaymentRequest: vi.fn(),
   createPaymentRequest: vi.fn(),
   getStudyAccess: vi.fn(),
@@ -21,12 +22,12 @@ vi.mock('./AdminStudentsPage.jsx', () => ({ default: () => null }))
 
 const friendAddresses = ['maya@example.com', 'ali@example.com', 'zara@example.com']
 const createdRequest = {
-  id: 'request-id', requestCode: 'SM-ABC123', offerType: 'friends', planKey: 'weekly', amountPkr: 600,
+  id: 'request-id', requestCode: 'SM-ABC123', offerType: 'friends', planKey: 'weekly', amountPkr: 450,
   status: 'pending', recipientEmails: ['buyer@example.com', ...friendAddresses],
 }
 
-function PlanHarness() {
-  const [access, setAccess] = useState({ isAdmin: false, premiumActive: false, pendingRequest: null })
+function PlanHarness({ initialAccess = { isAdmin: false, premiumActive: false, pendingRequest: null } }) {
+  const [access, setAccess] = useState(initialAccess)
   return <PlanPage
     access={access}
     accessStatus="ready"
@@ -50,6 +51,38 @@ describe('Friends Premium purchase and review flow', () => {
     createFriendsPaymentRequest.mockResolvedValue(createdRequest)
   })
 
+  it('offers the one-time trial only to eligible students and explains automatic expiry', async () => {
+    const user = userEvent.setup()
+    const trialAccess = {
+      isAdmin: false,
+      planKey: 'trial',
+      premiumActive: true,
+      dailyLimit: 30,
+      expiresAt: '2026-11-13T12:00:00.000Z',
+      trial: { eligible: false, claimed: true, active: true, expiresAt: '2026-11-13T12:00:00.000Z' },
+      pendingRequest: null,
+    }
+    claimStudyTrial.mockResolvedValue(trialAccess)
+    render(<PlanHarness initialAccess={{
+      isAdmin: false,
+      planKey: 'free',
+      premiumActive: false,
+      dailyLimit: 10,
+      trial: { eligible: true, claimed: false, active: false },
+      pendingRequest: null,
+    }} />)
+
+    expect(screen.getByRole('heading', { name: 'Try Premium free for 3 days' })).toBeInTheDocument()
+    expect(screen.getByText(/No payment details or WhatsApp message needed/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Start my free trial' }))
+
+    expect(claimStudyTrial).toHaveBeenCalledWith('test-token')
+    expect(await screen.findByRole('heading', { name: '3-day Premium trial' })).toBeInTheDocument()
+    expect(screen.getByText('Free trial ends')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Try Premium free for 3 days' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open WhatsApp' })).not.toBeInTheDocument()
+  })
+
   it('creates a four-account request and prepares the complete WhatsApp draft', async () => {
     const user = userEvent.setup()
     renderPlan()
@@ -57,7 +90,7 @@ describe('Friends Premium purchase and review flow', () => {
     for (const [index, email] of friendAddresses.entries()) {
       await user.type(screen.getByRole('textbox', { name: `Friend ${index + 1} email` }), email)
     }
-    await user.click(screen.getByRole('button', { name: /Continue.*Rs 600/ }))
+    await user.click(screen.getByRole('button', { name: /Continue.*Rs 450/ }))
 
     await screen.findByRole('heading', { name: 'Your request is ready' })
     expect(createFriendsPaymentRequest).toHaveBeenCalledWith('weekly', friendAddresses, 'test-token')
@@ -67,7 +100,7 @@ describe('Friends Premium purchase and review flow', () => {
     expect(whatsappUrl.pathname).toBe('/923172873743')
     const draft = whatsappUrl.searchParams.get('text')
     expect(draft).toContain('SM-ABC123')
-    expect(draft).toContain('Rs 600')
+    expect(draft).toContain('Rs 450')
     expect(draft).toContain('buyer@example.com')
     for (const email of friendAddresses) expect(draft).toContain(email)
     expect(screen.getByText(/All four accounts receive the selected duration/)).toBeInTheDocument()
@@ -79,7 +112,7 @@ describe('Friends Premium purchase and review flow', () => {
     await user.type(screen.getByRole('textbox', { name: 'Friend 1 email' }), friendAddresses[0])
     await user.type(screen.getByRole('textbox', { name: 'Friend 2 email' }), friendAddresses[0])
     await user.type(screen.getByRole('textbox', { name: 'Friend 3 email' }), friendAddresses[2])
-    await user.click(screen.getByRole('button', { name: /Continue.*Rs 600/ }))
+    await user.click(screen.getByRole('button', { name: /Continue.*Rs 450/ }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Enter three different, valid StudyMate account emails')
     expect(createFriendsPaymentRequest).not.toHaveBeenCalled()
@@ -91,7 +124,7 @@ describe('Friends Premium purchase and review flow', () => {
     const user = userEvent.setup()
     const request = {
       id: 'friends-request-id', request_code: 'SM-GROUP9', user_id: 'buyer-id', user_email: 'buyer@example.com',
-      offer_type: 'friends', plan_key: 'monthly', amount_pkr: 1650, status: 'pending', created_at: new Date().toISOString(),
+      offer_type: 'friends', plan_key: 'monthly', amount_pkr: 1500, status: 'pending', created_at: new Date().toISOString(),
       members: [
         { userId: 'buyer-id', email: 'buyer@example.com', name: 'Aarish' },
         ...friendAddresses.map((email, index) => ({ userId: `friend-${index}`, email, name: '' })),

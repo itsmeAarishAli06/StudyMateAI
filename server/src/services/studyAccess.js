@@ -39,9 +39,13 @@ export async function callStudyAccessRpc(request, functionName, args = {}) {
       throw new AppError(409, 'REQUEST_PENDING', 'You already have a payment request waiting for review.')
     }
     if (code === 'P0002') {
+      if (functionName === 'claim_study_free_trial') throw new AppError(403, 'TRIAL_NOT_ELIGIBLE', 'This account is not eligible for the new-student trial. Only newly registered, confirmed accounts can claim it once.')
       if (functionName === 'create_study_friends_payment_request') throw new AppError(400, 'FRIEND_ACCOUNTS_REQUIRED', 'All three friends must already have confirmed StudyMate accounts. Check the email addresses or ask them to sign up and confirm first.')
       if (functionName === 'admin_grant_study_access') throw new AppError(409, 'STUDENT_NOT_ELIGIBLE', 'This account was not found or its email has not been confirmed yet.')
       throw new AppError(404, 'REQUEST_NOT_FOUND', 'That pending payment request could not be found.')
+    }
+    if (code === 'P0001' && functionName === 'claim_study_free_trial') {
+      throw new AppError(409, 'TRIAL_ALREADY_CLAIMED', 'This account has already claimed its one-time free trial.')
     }
     if (code === '22023') {
       if (functionName === 'admin_grant_study_access') throw new AppError(400, 'INVALID_ACCESS_REQUEST', 'This account cannot receive the selected Premium access.')
@@ -50,7 +54,9 @@ export async function callStudyAccessRpc(request, functionName, args = {}) {
     if (code === '28000') throw new AppError(401, 'INVALID_SESSION', 'Your StudyMate session has expired. Sign in again.')
     if (['PGRST202', '42702', '42883', '42P01', '42703'].includes(code)) {
       console.error(`Study access database RPC ${functionName} is unavailable:`, code, databaseMessage)
-      const migrationMessage = functionName === 'admin_list_studymate_students'
+      const migrationMessage = ['get_study_trial_status', 'claim_study_free_trial'].includes(functionName)
+        ? 'The free-trial setup is incomplete. Apply the latest free-trial migration in Supabase, then retry.'
+        : functionName === 'admin_list_studymate_students'
         ? 'The student directory setup is incomplete. Apply the latest student profile migration in Supabase, then retry.'
         : functionName === 'admin_grant_study_access'
           ? 'Manual Premium grants are not set up yet. Apply the latest admin Premium grant migration in Supabase, then retry.'
@@ -71,9 +77,14 @@ export async function callStudyAccessRpc(request, functionName, args = {}) {
 }
 
 export async function getStudyAccess(request) {
-  const result = await callStudyAccessRpc(request, 'get_studymate_access')
+  const [result, trialResult] = await Promise.all([
+    callStudyAccessRpc(request, 'get_studymate_access'),
+    callStudyAccessRpc(request, 'get_study_trial_status'),
+  ])
   const row = Array.isArray(result) ? result[0] : result
-  if (!row || typeof row.is_admin !== 'boolean' || typeof row.premium_active !== 'boolean' || !Number.isInteger(row.daily_limit)) {
+  const trial = Array.isArray(trialResult) ? trialResult[0] : trialResult
+  if (!row || typeof row.is_admin !== 'boolean' || typeof row.premium_active !== 'boolean' || !Number.isInteger(row.daily_limit)
+    || !trial || typeof trial.eligible !== 'boolean' || typeof trial.claimed !== 'boolean' || typeof trial.active !== 'boolean') {
     throw new AppError(503, 'ACCESS_UNAVAILABLE', 'Study plan information is temporarily unavailable. Please retry.')
   }
   return {
@@ -85,5 +96,12 @@ export async function getStudyAccess(request) {
     dailyLimit: row.daily_limit,
     pendingRequest: row.pending_request,
     latestRequest: row.latest_request,
+    trial: {
+      eligible: trial.eligible,
+      claimed: trial.claimed,
+      active: trial.active,
+      startedAt: trial.started_at,
+      expiresAt: trial.expires_at,
+    },
   }
 }

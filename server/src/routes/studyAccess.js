@@ -39,6 +39,11 @@ router.get('/', requireSupabaseUser, async (request, response) => {
   response.json({ access: await getStudyAccess(request) })
 })
 
+router.post('/trial', requireSupabaseUser, async (request, response) => {
+  await callStudyAccessRpc(request, 'claim_study_free_trial')
+  response.status(200).json({ access: await getStudyAccess(request) })
+})
+
 router.post('/requests', requireSupabaseUser, async (request, response) => {
   const planKey = request.body?.planKey
   if (!['weekly', 'monthly'].includes(planKey)) throw new AppError(400, 'VALIDATION_ERROR', 'Choose the weekly or monthly plan.')
